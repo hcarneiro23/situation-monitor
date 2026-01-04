@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Newspaper, Filter, ChevronDown, ChevronUp, ExternalLink,
-  TrendingUp, Clock, Globe, Bookmark, BookmarkCheck
+  TrendingUp, Clock, Globe, Bookmark, BookmarkCheck, ArrowUpDown
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -11,6 +11,8 @@ function NewsFeed() {
   const [filter, setFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [clusterView, setClusterView] = useState(false);
+  const [sortOrder, setSortOrder] = useState('latest');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Cluster news by theme
   const clusteredNews = useMemo(() => {
@@ -40,14 +42,22 @@ function NewsFeed() {
     return clusters;
   }, [news]);
 
-  // Filter news
+  // Filter and sort news
   const filteredNews = useMemo(() => {
-    if (filter === 'all') return news;
-    if (filter === 'high') return news.filter(n => n.relevanceScore >= 7);
-    if (filter === 'signals') return news.filter(n => n.isSignal);
-    if (filter === 'new') return news.filter(n => n.isNew);
-    return news;
-  }, [news, filter]);
+    let result = news;
+    if (filter === 'high') result = news.filter(n => n.relevanceScore >= 7);
+    else if (filter === 'signals') result = news.filter(n => n.isSignal);
+    else if (filter === 'new') result = news.filter(n => n.isNew);
+
+    // Sort
+    if (sortOrder === 'latest') {
+      result = [...result].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    } else if (sortOrder === 'relevance') {
+      result = [...result].sort((a, b) => b.relevanceScore - a.relevanceScore);
+    }
+
+    return result;
+  }, [news, filter, sortOrder]);
 
   const getSignalStrengthBadge = (strength) => {
     switch (strength) {
@@ -104,6 +114,34 @@ function NewsFeed() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Sort dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-intel-700 rounded-lg text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowUpDown className="w-3 h-3" />
+              {sortOrder === 'latest' ? 'Latest' : 'Relevance'}
+              <ChevronDown className={`w-3 h-3 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showSortDropdown && (
+              <div className="absolute top-full right-0 mt-1 w-32 bg-intel-800 border border-intel-600 rounded-lg shadow-xl z-50 py-1">
+                <button
+                  onClick={() => { setSortOrder('latest'); setShowSortDropdown(false); }}
+                  className={`w-full px-3 py-1.5 text-xs text-left hover:bg-intel-700 ${sortOrder === 'latest' ? 'text-blue-400' : 'text-gray-300'}`}
+                >
+                  Latest
+                </button>
+                <button
+                  onClick={() => { setSortOrder('relevance'); setShowSortDropdown(false); }}
+                  className={`w-full px-3 py-1.5 text-xs text-left hover:bg-intel-700 ${sortOrder === 'relevance' ? 'text-blue-400' : 'text-gray-300'}`}
+                >
+                  Relevance
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Cluster toggle */}
           <button
             onClick={() => setClusterView(!clusterView)}
@@ -198,6 +236,14 @@ function NewsFeed() {
           </div>
         )}
       </div>
+
+      {/* Click outside to close dropdown */}
+      {showSortDropdown && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowSortDropdown(false)}
+        />
+      )}
     </div>
   );
 }
