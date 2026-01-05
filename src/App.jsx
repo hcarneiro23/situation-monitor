@@ -12,6 +12,19 @@ import CatalystTimeline from './components/CatalystTimeline';
 import Watchlist from './components/Watchlist';
 import AlertPanel from './components/AlertPanel';
 
+// Backend URL - use environment variable for production, fallback to localhost for dev
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
+const getApiUrl = (path) => BACKEND_URL ? `${BACKEND_URL}${path}` : path;
+const getWsUrl = () => {
+  if (BACKEND_URL) {
+    // Convert http(s) URL to ws(s)
+    return BACKEND_URL.replace(/^http/, 'ws');
+  }
+  // Local development fallback
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.hostname}:3001`;
+};
+
 function App() {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -30,8 +43,7 @@ function App() {
   } = useStore();
 
   const connectWebSocket = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:3001`;
+    const wsUrl = getWsUrl();
 
     console.log('[WS] Connecting to', wsUrl);
     wsRef.current = new WebSocket(wsUrl);
@@ -93,8 +105,8 @@ function App() {
   const fetchInitialData = async () => {
     try {
       const [stateRes, relationshipsRes] = await Promise.all([
-        fetch('/api/state'),
-        fetch('/api/relationships')
+        fetch(getApiUrl('/api/state')),
+        fetch(getApiUrl('/api/relationships'))
       ]);
 
       if (stateRes.ok) {
@@ -116,7 +128,7 @@ function App() {
     connectWebSocket();
 
     // Fetch relationships once
-    fetch('/api/relationships')
+    fetch(getApiUrl('/api/relationships'))
       .then(res => res.json())
       .then(data => setRelationships(data))
       .catch(err => console.error('[API] Relationships error:', err));
