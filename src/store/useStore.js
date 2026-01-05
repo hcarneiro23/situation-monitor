@@ -18,8 +18,10 @@ export const useStore = create((set, get) => ({
   selectedRegion: null,
   expandedNews: null,
 
-  // User location preferences
+  // User preferences (from onboarding)
   userCity: localStorage.getItem('userCity') || null,
+  userInterests: JSON.parse(localStorage.getItem('userInterests') || '[]'),
+  onboardingCompleted: localStorage.getItem('onboardingCompleted') === 'true',
   availableCities: [],
 
   // Watchlist
@@ -46,7 +48,7 @@ export const useStore = create((set, get) => ({
   setConnected: (isConnected) => set({ isConnected }),
   setLastUpdate: (lastUpdate) => set({ lastUpdate }),
 
-  // Location preferences
+  // User preferences (onboarding)
   setUserCity: (city) => {
     if (city) {
       localStorage.setItem('userCity', city);
@@ -54,6 +56,20 @@ export const useStore = create((set, get) => ({
       localStorage.removeItem('userCity');
     }
     set({ userCity: city });
+  },
+  setUserInterests: (interests) => {
+    localStorage.setItem('userInterests', JSON.stringify(interests));
+    set({ userInterests: interests });
+  },
+  setOnboardingCompleted: (completed) => {
+    localStorage.setItem('onboardingCompleted', completed ? 'true' : 'false');
+    set({ onboardingCompleted: completed });
+  },
+  resetOnboarding: () => {
+    localStorage.removeItem('userCity');
+    localStorage.removeItem('userInterests');
+    localStorage.removeItem('onboardingCompleted');
+    set({ userCity: null, userInterests: [], onboardingCompleted: false });
   },
   setAvailableCities: (cities) => set({ availableCities: cities }),
 
@@ -168,18 +184,11 @@ export const useStore = create((set, get) => ({
     );
   },
 
-  // Get news filtered by user's selected city (includes international + regional + local)
+  // Get news filtered by user's preferences (interests + location)
   getNewsByUserLocation: () => {
-    const { news, userCity } = get();
+    const { news, userCity, userInterests } = get();
 
-    if (!userCity) {
-      // No city selected - return only international news
-      return news.filter(item => item.scope === 'international' || !item.scope);
-    }
-
-    const cityLower = userCity.toLowerCase();
-
-    // City to region mapping (matches backend)
+    // City to region mapping
     const cityRegions = {
       'new york': 'north_america', 'nyc': 'north_america', 'los angeles': 'north_america', 'chicago': 'north_america',
       'houston': 'north_america', 'dallas': 'north_america', 'miami': 'north_america', 'san francisco': 'north_america',
@@ -207,10 +216,29 @@ export const useStore = create((set, get) => ({
       'auckland': 'oceania', 'wellington': 'oceania',
     };
 
-    const userRegion = cityRegions[cityLower];
+    // Interest to category/keyword mapping
+    const interestCategories = {
+      'markets': ['markets', 'business', 'economy', 'monetary'],
+      'geopolitics': ['world', 'geopolitics', 'politics', 'security', 'defense'],
+      'technology': ['tech', 'semiconductors', 'ai', 'cyber'],
+      'energy': ['commodities', 'energy', 'oil', 'gas'],
+      'trade': ['trade', 'tariff', 'sanctions', 'exports'],
+      'policy': ['policy', 'regulation', 'legislation'],
+      'climate': ['climate', 'environment', 'sustainability'],
+      'crypto': ['crypto', 'bitcoin', 'blockchain', 'digital currency'],
+    };
 
-    return news.filter(item => {
-      // Always include international news (or items without scope for backward compatibility)
+    const cityLower = userCity?.toLowerCase();
+    const userRegion = cityLower ? cityRegions[cityLower] : null;
+
+    // Filter by location first
+    let filtered = news.filter(item => {
+      // If no city selected, include all international news
+      if (!userCity) {
+        return item.scope === 'international' || !item.scope;
+      }
+
+      // Always include international news
       if (item.scope === 'international' || !item.scope) return true;
 
       // Include regional news if user's city is in that region
@@ -225,6 +253,33 @@ export const useStore = create((set, get) => ({
 
       return false;
     });
+
+    // If user has interests, boost/prioritize matching content
+    // But don't exclude non-matching content entirely
+    if (userInterests && userInterests.length > 0) {
+      const interestKeywords = userInterests.flatMap(interest =>
+        interestCategories[interest] || [interest]
+      );
+
+      // Score items based on interest match
+      filtered = filtered.map(item => {
+        const text = `${item.title} ${item.summary} ${item.category}`.toLowerCase();
+        const matchScore = interestKeywords.reduce((score, keyword) => {
+          return text.includes(keyword) ? score + 1 : score;
+        }, 0);
+        return { ...item, interestScore: matchScore };
+      });
+
+      // Sort by interest match (higher scores first), then by date
+      filtered.sort((a, b) => {
+        if (b.interestScore !== a.interestScore) {
+          return b.interestScore - a.interestScore;
+        }
+        return new Date(b.pubDate) - new Date(a.pubDate);
+      });
+    }
+
+    return filtered;
   },
 
   getNewsBySignal: (signalId) => {

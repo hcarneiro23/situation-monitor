@@ -254,7 +254,7 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userCity, getNewsByUserLocation } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userCity, userInterests, getNewsByUserLocation } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
@@ -362,12 +362,16 @@ function NewsFeed() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
         <div className="px-4 py-3">
-          <h2 className="text-xl font-bold text-white">What's Happening</h2>
-          {userCity && (
-            <p className="text-sm text-gray-400 mt-0.5">
-              Showing news for {userCity.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} and worldwide
-            </p>
-          )}
+          <h2 className="text-xl font-bold text-white">Your Feed</h2>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {userCity
+              ? `${userCity.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} + Global`
+              : 'Global news'
+            }
+            {userInterests && userInterests.length > 0 && (
+              <span className="text-gray-500"> · Personalized</span>
+            )}
+          </p>
         </div>
       </div>
 

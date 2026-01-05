@@ -8,6 +8,7 @@ import TrendingTopics from './components/TrendingTopics';
 import Watchlist from './components/Watchlist';
 import AlertPanel from './components/AlertPanel';
 import PostDetail from './components/PostDetail';
+import Onboarding from './components/Onboarding';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
@@ -44,7 +45,8 @@ function App() {
     setEvents,
     setSummary,
     setRelationships,
-    checkWatchlistAlerts
+    checkWatchlistAlerts,
+    onboardingCompleted
   } = useStore();
 
   const connectWebSocket = () => {
@@ -158,6 +160,17 @@ function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Show onboarding for new users
+  if (!onboardingCompleted) {
+    return (
+      <BrowserRouter>
+        <ProtectedRoute>
+          <Onboarding />
+        </ProtectedRoute>
+      </BrowserRouter>
+    );
+  }
 
   return (
     <BrowserRouter>
