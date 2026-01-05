@@ -13,13 +13,14 @@ import {
 const COLLECTION_NAME = 'comments';
 
 export const commentsService = {
-  // Add a new comment
-  async addComment(postId, { text, author, authorId }) {
+  // Add a new comment (parentId for replies)
+  async addComment(postId, { text, author, authorId, parentId = null }) {
     const docRef = await addDoc(collection(db, COLLECTION_NAME), {
       postId,
       text,
       author,
       authorId,
+      parentId,
       createdAt: serverTimestamp()
     });
     return docRef.id;
@@ -41,12 +42,34 @@ export const commentsService = {
       const comments = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        // Convert Firestore timestamp to ISO string
         createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
       }));
-      // Sort client-side instead (newest first)
-      comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      callback(comments);
+
+      // Build nested structure
+      const commentMap = {};
+      const rootComments = [];
+
+      // First pass: create map
+      comments.forEach(comment => {
+        commentMap[comment.id] = { ...comment, replies: [] };
+      });
+
+      // Second pass: build tree
+      comments.forEach(comment => {
+        if (comment.parentId && commentMap[comment.parentId]) {
+          commentMap[comment.parentId].replies.push(commentMap[comment.id]);
+        } else if (!comment.parentId) {
+          rootComments.push(commentMap[comment.id]);
+        }
+      });
+
+      // Sort root comments and replies (newest first for roots, oldest first for replies)
+      rootComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      Object.values(commentMap).forEach(comment => {
+        comment.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      });
+
+      callback(rootComments);
     });
   }
 };

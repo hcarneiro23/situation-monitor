@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, Trash2, User } from 'lucide-react';
+import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, Trash2, User, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { commentsService } from '../services/comments';
@@ -88,6 +88,76 @@ function formatFullDate(dateStr) {
   return '';
 }
 
+// Recursive comment component
+function CommentItem({ comment, user, onReply, onDelete, formatDate, depth = 0 }) {
+  const maxDepth = 3; // Limit nesting depth
+  const isNested = depth > 0;
+
+  return (
+    <div className={`${isNested ? 'ml-8 border-l border-intel-700 pl-4' : ''}`}>
+      <div className="py-3 border-b border-intel-700">
+        <div className="flex gap-3">
+          {/* Comment author avatar */}
+          <div className="flex-shrink-0">
+            <div className={`${isNested ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-intel-700 flex items-center justify-center`}>
+              <User className={`${isNested ? 'w-4 h-4' : 'w-5 h-5'} text-gray-400`} />
+            </div>
+          </div>
+
+          {/* Comment content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-white text-sm">{comment.author}</span>
+              <span className="text-gray-500 text-sm">·</span>
+              <span className="text-gray-500 text-sm">{formatDate(comment.createdAt)}</span>
+            </div>
+            <p className="text-[15px] text-white mt-1">{comment.text}</p>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-4 mt-2">
+              {depth < maxDepth && (
+                <button
+                  onClick={() => onReply(comment)}
+                  className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors text-sm"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Reply</span>
+                </button>
+              )}
+              {user?.uid === comment.authorId && (
+                <button
+                  onClick={() => onDelete(comment.id)}
+                  className="flex items-center gap-1 text-gray-500 hover:text-red-400 transition-colors text-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nested replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div>
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              user={user}
+              onReply={onReply}
+              onDelete={onDelete}
+              formatDate={formatDate}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
@@ -98,6 +168,7 @@ function PostDetail() {
   const [replyText, setReplyText] = useState('');
   const [postComments, setPostComments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null); // { id, author } for nested replies
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
@@ -203,14 +274,25 @@ function PostDetail() {
       await commentsService.addComment(post.id, {
         text: replyText.trim(),
         author: user?.displayName || user?.email || 'Anonymous',
-        authorId: user?.uid || null
+        authorId: user?.uid || null,
+        parentId: replyingTo?.id || null
       });
       setReplyText('');
+      setReplyingTo(null);
     } catch (err) {
       console.error('Failed to add comment:', err);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleReplyToComment = (comment) => {
+    setReplyingTo({ id: comment.id, author: comment.author });
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+    setReplyText('');
   };
 
   const handleDeleteComment = async (commentId) => {
@@ -339,6 +421,18 @@ function PostDetail() {
 
           {/* Reply input section */}
           <div className="py-3 border-b border-intel-700">
+            {replyingTo && (
+              <div className="flex items-center gap-2 mb-2 text-sm">
+                <span className="text-gray-500">Replying to</span>
+                <span className="text-blue-400">@{replyingTo.author}</span>
+                <button
+                  onClick={cancelReply}
+                  className="ml-auto text-gray-500 hover:text-white text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
             <form onSubmit={handleSubmitReply} className="flex gap-3">
               {/* User avatar */}
               <div className="flex-shrink-0">
@@ -356,7 +450,7 @@ function PostDetail() {
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Post your reply"
+                  placeholder={replyingTo ? `Reply to @${replyingTo.author}...` : "Post your reply"}
                   className="w-full bg-transparent text-white placeholder-gray-500 text-[15px] resize-none outline-none min-h-[60px]"
                   rows={2}
                 />
@@ -382,35 +476,15 @@ function PostDetail() {
               </div>
             ) : (
               postComments.map((comment) => (
-                <div key={comment.id} className="py-3 border-b border-intel-700">
-                  <div className="flex gap-3">
-                    {/* Comment author avatar */}
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
-                        <User className="w-5 h-5 text-gray-400" />
-                      </div>
-                    </div>
-
-                    {/* Comment content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-sm">{comment.author}</span>
-                        <span className="text-gray-500 text-sm">·</span>
-                        <span className="text-gray-500 text-sm">{formatDate(comment.createdAt)}</span>
-                        {user?.uid === comment.authorId && (
-                          <button
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="ml-auto p-1 rounded-full hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
-                            title="Delete reply"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[15px] text-white mt-1">{comment.text}</p>
-                    </div>
-                  </div>
-                </div>
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  user={user}
+                  onReply={handleReplyToComment}
+                  onDelete={handleDeleteComment}
+                  formatDate={formatDate}
+                  depth={0}
+                />
               ))
             )}
           </div>
