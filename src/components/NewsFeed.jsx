@@ -1,7 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Repeat2, Heart, Share, ExternalLink, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, Repeat2, Heart, Share, ExternalLink, MoreHorizontal, Check, Bookmark, BookmarkCheck } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
+
+// Get liked items from localStorage
+function getLikedItems() {
+  try {
+    return JSON.parse(localStorage.getItem('likedNews') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+// Save liked items to localStorage
+function setLikedItems(items) {
+  localStorage.setItem('likedNews', JSON.stringify(items));
+}
 
 // Source logo colors for fallback avatars
 const SOURCE_COLORS = {
@@ -58,11 +72,70 @@ function formatDate(dateStr) {
 }
 
 // Tweet-like news item component
-function NewsItem({ item }) {
+function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
   const [imgError, setImgError] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const logoUrl = getSourceLogo(item.link);
+  const isLiked = likedItems[item.id];
 
   const handleClick = () => {
+    if (item.link) {
+      window.open(item.link, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleLike = (e) => {
+    e.stopPropagation();
+    onLike(item.id);
+  };
+
+  const handleRetweet = async (e) => {
+    e.stopPropagation();
+    const text = `${item.title}\n\n${item.link}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleShare = async (e) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: item.title,
+          text: item.summary || item.title,
+          url: item.link
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Share failed:', err);
+        }
+      }
+    } else {
+      // Fallback: copy link
+      try {
+        await navigator.clipboard.writeText(item.link);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  };
+
+  const handleBookmark = (e) => {
+    e.stopPropagation();
+    onBookmark(item);
+  };
+
+  const handleComment = (e) => {
+    e.stopPropagation();
+    // Open source to comment/read more
     if (item.link) {
       window.open(item.link, '_blank', 'noopener,noreferrer');
     }
@@ -101,8 +174,16 @@ function NewsItem({ item }) {
             <span className="text-gray-500">·</span>
             <span className="text-gray-500">{formatDate(item.pubDate)}</span>
             <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
-              <button className="p-1.5 rounded-full hover:bg-intel-700 transition-colors">
-                <MoreHorizontal className="w-4 h-4 text-gray-500" />
+              <button
+                onClick={handleBookmark}
+                className="p-1.5 rounded-full hover:bg-intel-700 transition-colors"
+                title={isBookmarked ? 'Remove from watchlist' : 'Add to watchlist'}
+              >
+                {isBookmarked ? (
+                  <BookmarkCheck className="w-4 h-4 text-blue-400" />
+                ) : (
+                  <Bookmark className="w-4 h-4 text-gray-500" />
+                )}
               </button>
             </div>
           </div>
@@ -145,24 +226,47 @@ function NewsItem({ item }) {
 
           {/* Action buttons */}
           <div className="flex items-center justify-between mt-3 max-w-[400px]" onClick={(e) => e.stopPropagation()}>
-            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group">
+            {/* Comment - opens source */}
+            <button
+              onClick={handleComment}
+              className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group"
+              title="Read more"
+            >
               <div className="p-2 rounded-full group-hover:bg-blue-400/10 -ml-2">
                 <MessageCircle className="w-[18px] h-[18px]" />
               </div>
             </button>
-            <button className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition-colors group">
+
+            {/* Retweet - copy to clipboard */}
+            <button
+              onClick={handleRetweet}
+              className={`flex items-center gap-1 transition-colors group ${copied ? 'text-green-400' : 'text-gray-500 hover:text-green-400'}`}
+              title={copied ? 'Copied!' : 'Copy to clipboard'}
+            >
               <div className="p-2 rounded-full group-hover:bg-green-400/10">
-                <Repeat2 className="w-[18px] h-[18px]" />
+                {copied ? <Check className="w-[18px] h-[18px]" /> : <Repeat2 className="w-[18px] h-[18px]" />}
               </div>
             </button>
-            <button className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors group">
+
+            {/* Like */}
+            <button
+              onClick={handleLike}
+              className={`flex items-center gap-1 transition-colors group ${isLiked ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'}`}
+              title={isLiked ? 'Unlike' : 'Like'}
+            >
               <div className="p-2 rounded-full group-hover:bg-pink-400/10">
-                <Heart className="w-[18px] h-[18px]" />
+                <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-current' : ''}`} />
               </div>
             </button>
-            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group">
+
+            {/* Share */}
+            <button
+              onClick={handleShare}
+              className={`flex items-center gap-1 transition-colors group ${shared ? 'text-blue-400' : 'text-gray-500 hover:text-blue-400'}`}
+              title={shared ? 'Link copied!' : 'Share'}
+            >
               <div className="p-2 rounded-full group-hover:bg-blue-400/10">
-                <Share className="w-[18px] h-[18px]" />
+                {shared ? <Check className="w-[18px] h-[18px]" /> : <Share className="w-[18px] h-[18px]" />}
               </div>
             </button>
           </div>
@@ -173,9 +277,10 @@ function NewsItem({ item }) {
 }
 
 function NewsFeed() {
-  const { news } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
+  const [likedItems, setLikedItemsState] = useState(getLikedItems);
   const loaderRef = useRef(null);
 
   // Sort by date (newest first)
@@ -187,6 +292,32 @@ function NewsFeed() {
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
+
+  // Handle like toggle
+  const handleLike = (itemId) => {
+    const newLikedItems = { ...likedItems };
+    if (newLikedItems[itemId]) {
+      delete newLikedItems[itemId];
+    } else {
+      newLikedItems[itemId] = true;
+    }
+    setLikedItemsState(newLikedItems);
+    setLikedItems(newLikedItems);
+  };
+
+  // Handle bookmark toggle
+  const handleBookmark = (item) => {
+    if (isInWatchlist(item.id)) {
+      removeFromWatchlist(item.id);
+    } else {
+      addToWatchlist({
+        id: item.id,
+        type: 'news',
+        name: item.title.slice(0, 50),
+        data: item
+      });
+    }
+  };
 
   // Infinite scroll using Intersection Observer
   useEffect(() => {
@@ -229,7 +360,14 @@ function NewsFeed() {
         ) : (
           <>
             {displayedNews.map((item, idx) => (
-              <NewsItem key={`${item.id}-${idx}`} item={item} />
+              <NewsItem
+                key={`${item.id}-${idx}`}
+                item={item}
+                likedItems={likedItems}
+                onLike={handleLike}
+                onBookmark={handleBookmark}
+                isBookmarked={isInWatchlist(item.id)}
+              />
             ))}
 
             {/* Loading indicator / Infinite scroll trigger */}
