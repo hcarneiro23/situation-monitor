@@ -46,6 +46,7 @@ function App() {
     setSummary,
     setRelationships,
     checkWatchlistAlerts,
+    checkTrackedPostsForUpdates,
     onboardingCompleted
   } = useStore();
 
@@ -73,6 +74,8 @@ function App() {
             setNews(message.data.news);
             setSignals(message.data.signals);
             checkWatchlistAlerts();
+            // Check tracked posts for similar news
+            setTimeout(() => checkTrackedPostsForUpdates(), 100);
             break;
           case 'MARKET_UPDATE':
             setMarkets(message.data);

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, MapPin, Globe2 } from 'lucide-react';
+import { MessageCircle, Heart, Share, ExternalLink, Bell, BellRing, MapPin, Globe2 } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { likesService } from '../services/likes';
 import { commentsService } from '../services/comments';
@@ -161,12 +161,12 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
               <button
                 onClick={handleBookmark}
                 className="p-1.5 rounded-full hover:bg-intel-700 transition-colors"
-                title={isBookmarked ? 'Remove from watchlist' : 'Add to watchlist'}
+                title={isBookmarked ? 'Stop tracking' : 'Track similar stories'}
               >
                 {isBookmarked ? (
-                  <BookmarkCheck className="w-4 h-4 text-blue-400" />
+                  <BellRing className="w-4 h-4 text-blue-400" />
                 ) : (
-                  <Bookmark className="w-4 h-4 text-gray-500" />
+                  <Bell className="w-4 h-4 text-gray-500" />
                 )}
               </button>
             </div>

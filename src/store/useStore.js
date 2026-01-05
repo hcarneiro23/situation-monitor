@@ -112,7 +112,19 @@ export const useStore = create((set, get) => ({
 
   // Watchlist management
   addToWatchlist: (item) => {
-    const watchlist = [...get().watchlist, item];
+    // If tracking a news item, extract keywords for similarity matching
+    let enhancedItem = { ...item };
+    if (item.type === 'news' && item.data) {
+      const text = `${item.data.title} ${item.data.summary || ''}`.toLowerCase();
+      // Extract significant words (3+ chars, not common words)
+      const stopWords = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'will', 'more', 'when', 'who', 'oil', 'new', 'now', 'way', 'may', 'say', 'she', 'two', 'how', 'its', 'let', 'put', 'say', 'too', 'use']);
+      const words = text.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
+      // Get unique keywords
+      enhancedItem.keywords = [...new Set(words)].slice(0, 15);
+      enhancedItem.trackedAt = new Date().toISOString();
+      enhancedItem.notifiedIds = [item.data.id]; // Don't notify for the original post
+    }
+    const watchlist = [...get().watchlist, enhancedItem];
     localStorage.setItem('watchlist', JSON.stringify(watchlist));
     set({ watchlist });
   },
@@ -125,6 +137,65 @@ export const useStore = create((set, get) => ({
 
   isInWatchlist: (itemId) => {
     return get().watchlist.some(i => i.id === itemId);
+  },
+
+  // Find similar news for a tracked post
+  getSimilarNews: (trackedItem) => {
+    if (!trackedItem.keywords || trackedItem.keywords.length === 0) return [];
+    const { news } = get();
+    const notifiedIds = new Set(trackedItem.notifiedIds || []);
+
+    return news
+      .filter(item => !notifiedIds.has(item.id))
+      .map(item => {
+        const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+        const matchCount = trackedItem.keywords.filter(kw => text.includes(kw)).length;
+        const matchScore = matchCount / trackedItem.keywords.length;
+        return { ...item, matchScore, matchCount };
+      })
+      .filter(item => item.matchScore >= 0.3) // At least 30% keyword match
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, 5);
+  },
+
+  // Check all tracked posts for new similar news and create alerts
+  checkTrackedPostsForUpdates: () => {
+    const { watchlist, news, addAlert } = get();
+    const trackedPosts = watchlist.filter(item => item.type === 'news');
+    let updated = false;
+
+    trackedPosts.forEach(tracked => {
+      if (!tracked.keywords) return;
+      const notifiedIds = new Set(tracked.notifiedIds || []);
+
+      news.forEach(item => {
+        if (notifiedIds.has(item.id)) return;
+
+        const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+        const matchCount = tracked.keywords.filter(kw => text.includes(kw)).length;
+        const matchScore = matchCount / tracked.keywords.length;
+
+        if (matchScore >= 0.3) {
+          // Create alert for similar news
+          addAlert({
+            type: 'tracked',
+            title: 'Similar story found',
+            message: item.title.slice(0, 80) + (item.title.length > 80 ? '...' : ''),
+            severity: matchScore >= 0.5 ? 'high' : 'medium',
+            relatedItem: { trackedId: tracked.id, newsId: item.id, source: item.source }
+          });
+
+          // Mark as notified
+          tracked.notifiedIds = [...(tracked.notifiedIds || []), item.id];
+          updated = true;
+        }
+      });
+    });
+
+    if (updated) {
+      localStorage.setItem('watchlist', JSON.stringify(watchlist));
+      set({ watchlist: [...watchlist] });
+    }
   },
 
   // Comment management
