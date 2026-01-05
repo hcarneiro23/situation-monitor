@@ -42,10 +42,10 @@ function TrendingTopics() {
   const topics = useMemo(() => {
     if (!news || news.length === 0) return [];
 
-    const phrasesCounts = {};
+    const phrasesSet = new Set();
 
+    // First pass: extract all unique 2-word phrases from titles
     news.forEach(item => {
-      // Extract 2-word phrases from title
       const titleWords = item.title
         .toLowerCase()
         .replace(/[^\w\s'-]/g, ' ')
@@ -59,16 +59,26 @@ function TrendingTopics() {
         if (STOP_WORDS.has(w1) || STOP_WORDS.has(w2)) continue;
 
         const phrase = `${w1} ${w2}`;
-        phrasesCounts[phrase] = (phrasesCounts[phrase] || 0) + 1;
+        phrasesSet.add(phrase);
       }
     });
 
-    // Get top phrases
-    return Object.entries(phrasesCounts)
-      .filter(([_, count]) => count >= 2)
-      .sort((a, b) => b[1] - a[1])
+    // Second pass: count articles containing each phrase (same logic as TopicDetail)
+    const phrasesWithCounts = Array.from(phrasesSet).map(phrase => {
+      const words = phrase.split(' ');
+      const count = news.filter(item => {
+        const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+        return words.every(word => text.includes(word));
+      }).length;
+      return { phrase, count };
+    });
+
+    // Get top phrases by article count
+    return phrasesWithCounts
+      .filter(({ count }) => count >= 2)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10)
-      .map(([phrase, count]) => ({
+      .map(({ phrase, count }) => ({
         text: phrase.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
         count
       }));
