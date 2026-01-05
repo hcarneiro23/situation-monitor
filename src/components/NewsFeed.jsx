@@ -4,7 +4,47 @@ import {
   Newspaper, Filter, ChevronDown, ChevronUp, ExternalLink,
   TrendingUp, Clock, Globe, Bookmark, BookmarkCheck, ArrowUpDown
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
+
+// Safely parse a date string and return timestamp (for sorting)
+function getTimestamp(dateStr) {
+  if (!dateStr) return 0;
+
+  try {
+    // Try parsing as ISO first (most reliable)
+    const isoDate = parseISO(dateStr);
+    if (isValid(isoDate)) return isoDate.getTime();
+
+    // Fallback to native Date parsing
+    const nativeDate = new Date(dateStr);
+    if (isValid(nativeDate)) return nativeDate.getTime();
+  } catch (e) {
+    // Parsing failed
+  }
+
+  return 0; // Invalid dates sort to the end
+}
+
+// Safely format a date for display
+function safeFormatDistanceToNow(dateStr) {
+  if (!dateStr) return 'Unknown';
+
+  try {
+    const date = parseISO(dateStr);
+    if (isValid(date)) {
+      return formatDistanceToNow(date, { addSuffix: true });
+    }
+
+    const nativeDate = new Date(dateStr);
+    if (isValid(nativeDate)) {
+      return formatDistanceToNow(nativeDate, { addSuffix: true });
+    }
+  } catch (e) {
+    // Parsing failed
+  }
+
+  return 'Unknown';
+}
 
 function NewsFeed() {
   const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, expandedNews, setExpandedNews } = useStore();
@@ -51,9 +91,16 @@ function NewsFeed() {
 
     // Sort
     if (sortOrder === 'latest') {
-      result = [...result].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+      result = [...result].sort((a, b) => getTimestamp(b.pubDate) - getTimestamp(a.pubDate));
     } else if (sortOrder === 'relevance') {
-      result = [...result].sort((a, b) => b.relevanceScore - a.relevanceScore);
+      result = [...result].sort((a, b) => {
+        const scoreDiff = b.relevanceScore - a.relevanceScore;
+        // If same relevance, sort by date
+        if (scoreDiff === 0) {
+          return getTimestamp(b.pubDate) - getTimestamp(a.pubDate);
+        }
+        return scoreDiff;
+      });
     }
 
     return result;
@@ -258,7 +305,7 @@ function NewsItem({ item, expanded, onToggle, onWatchlistToggle, isWatched, getS
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-medium text-blue-400">{item.source}</span>
             <span className="text-xs text-gray-500">
-              {formatDistanceToNow(new Date(item.pubDate), { addSuffix: true })}
+              {safeFormatDistanceToNow(item.pubDate)}
             </span>
             {item.isNew && (
               <span className="px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded">NEW</span>

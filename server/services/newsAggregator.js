@@ -132,6 +132,24 @@ const TRANSMISSION_CHANNELS = {
   semiconductor: 'Tech Supply -> Production Bottleneck -> Sector Impact -> Tech Valuations',
 };
 
+// Normalize date to ISO format with robust parsing
+function normalizeDate(dateInput) {
+  if (!dateInput) return new Date().toISOString();
+
+  try {
+    const date = new Date(dateInput);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('[NewsAggregator] Invalid date:', dateInput);
+      return new Date().toISOString();
+    }
+    return date.toISOString();
+  } catch (e) {
+    console.warn('[NewsAggregator] Date parse error:', dateInput, e.message);
+    return new Date().toISOString();
+  }
+}
+
 function scoreMarketRelevance(title, content) {
   const text = `${title} ${content}`.toLowerCase();
   let score = 0;
@@ -337,7 +355,7 @@ export const newsAggregator = {
         source: item.feedSource,
         category: item.feedCategory,
         link: item.link,
-        pubDate: item.pubDate || item.isoDate || new Date().toISOString(),
+        pubDate: normalizeDate(item.pubDate || item.isoDate),
         relevanceScore,
         signalStrength: determineSignalStrength(item),
         regions,
