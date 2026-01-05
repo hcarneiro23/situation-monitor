@@ -90,7 +90,6 @@ function formatFullDate(dateStr) {
 
 // Recursive comment component
 function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingToId, onStartReply, onCancelReply, onSubmitReply, replyText, setReplyText, submitting }) {
-  const maxDepth = 3; // Limit nesting depth
   const isNested = depth > 0;
   const isReplying = replyingToId === comment.id;
 
@@ -116,15 +115,13 @@ function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingT
 
             {/* Action buttons */}
             <div className="flex items-center gap-4 mt-2">
-              {depth < maxDepth && (
-                <button
-                  onClick={() => onStartReply(comment)}
-                  className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors text-sm"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Reply</span>
-                </button>
-              )}
+              <button
+                onClick={() => onStartReply(comment)}
+                className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors text-sm"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Reply</span>
+              </button>
               {user?.uid === comment.authorId && (
                 <button
                   onClick={() => onDelete(comment.id)}
