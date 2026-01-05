@@ -41,10 +41,14 @@ function Watchlist() {
 
       // Convert to array for chart
       const chartData = Object.entries(hourlyMentions)
-        .map(([hour, count]) => ({
-          hour: new Date(hour).toLocaleTimeString('en-US', { hour: 'numeric' }),
-          mentions: count
-        }));
+        .map(([hour, count]) => {
+          // hour is like "2024-01-05T10", need to make it valid ISO
+          const date = new Date(hour + ':00:00.000Z');
+          return {
+            hour: date.toLocaleTimeString('en-US', { hour: 'numeric' }),
+            mentions: count
+          };
+        });
 
       // Calculate current mentions
       const currentMentions = news.filter(item => {
