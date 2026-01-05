@@ -3,9 +3,6 @@ import NodeCache from 'node-cache';
 
 const cache = new NodeCache({ stdTTL: 60 }); // 1 minute cache
 
-// Suppress yahoo-finance2 validation warnings
-yahooFinance.suppressNotices(['yahooSurvey']);
-
 // Key market symbols to track
 const SYMBOLS = {
   // Major Indices
