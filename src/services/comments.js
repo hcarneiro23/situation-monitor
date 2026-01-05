@@ -6,7 +6,6 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
@@ -35,8 +34,7 @@ export const commentsService = {
   subscribeToComments(postId, callback) {
     const q = query(
       collection(db, COLLECTION_NAME),
-      where('postId', '==', postId),
-      orderBy('createdAt', 'desc')
+      where('postId', '==', postId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -46,6 +44,8 @@ export const commentsService = {
         // Convert Firestore timestamp to ISO string
         createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
       }));
+      // Sort client-side instead (newest first)
+      comments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       callback(comments);
     });
   }
