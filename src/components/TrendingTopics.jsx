@@ -1,83 +1,135 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { TrendingUp, Hash, Globe, Users, Building2, Flame } from 'lucide-react';
+import { TrendingUp, Hash, Flame } from 'lucide-react';
 
-// Keywords to extract and categorize
-const TOPIC_CATEGORIES = {
-  regions: ['china', 'russia', 'ukraine', 'israel', 'gaza', 'iran', 'europe', 'us', 'usa', 'america', 'germany', 'france', 'uk', 'japan', 'india', 'brazil', 'mexico', 'venezuela', 'saudi', 'taiwan', 'korea', 'middle east', 'asia', 'africa'],
-  entities: ['nato', 'eu', 'un', 'opec', 'fed', 'ecb', 'imf', 'world bank', 'pentagon', 'kremlin', 'white house', 'congress', 'senate'],
-  leaders: ['biden', 'trump', 'putin', 'xi', 'zelensky', 'netanyahu', 'macron', 'scholz', 'modi', 'lula', 'milei', 'maduro', 'powell'],
-  topics: ['tariff', 'sanctions', 'war', 'conflict', 'peace', 'ceasefire', 'election', 'inflation', 'interest rate', 'oil', 'gas', 'energy', 'trade', 'military', 'nuclear', 'climate', 'economy', 'recession', 'growth', 'crisis', 'protest', 'coup', 'attack', 'missile', 'drone', 'ai', 'technology', 'semiconductor', 'chip']
-};
+// Common stop words to filter out
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+  'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had',
+  'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must',
+  'shall', 'can', 'need', 'dare', 'ought', 'used', 'it', 'its', 'this', 'that',
+  'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'what', 'which', 'who',
+  'whom', 'whose', 'where', 'when', 'why', 'how', 'all', 'each', 'every', 'both',
+  'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
+  'same', 'so', 'than', 'too', 'very', 'just', 'also', 'now', 'here', 'there', 'then',
+  'once', 'if', 'because', 'until', 'while', 'although', 'though', 'after', 'before',
+  'above', 'below', 'between', 'under', 'again', 'further', 'about', 'into', 'through',
+  'during', 'out', 'off', 'over', 'up', 'down', 'any', 'new', 'says', 'said', 'say',
+  'according', 'report', 'reports', 'news', 'amid', 'among', 'around', 'being', 'get',
+  'gets', 'got', 'make', 'makes', 'made', 'take', 'takes', 'took', 'come', 'comes',
+  'came', 'go', 'goes', 'went', 'see', 'sees', 'saw', 'know', 'knows', 'knew', 'think',
+  'thinks', 'thought', 'want', 'wants', 'wanted', 'use', 'uses', 'used', 'find', 'finds',
+  'found', 'give', 'gives', 'gave', 'tell', 'tells', 'told', 'may', 'year', 'years',
+  'day', 'days', 'time', 'first', 'last', 'long', 'great', 'little', 'own', 'old',
+  'right', 'big', 'high', 'different', 'small', 'large', 'next', 'early', 'young',
+  'important', 'public', 'bad', 'good', 'best', 'worst', 'way', 'week', 'month',
+  'today', 'yesterday', 'tomorrow', 'monday', 'tuesday', 'wednesday', 'thursday',
+  'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december', 'reuters',
+  'associated', 'press', 'bbc', 'cnn', 'guardian', 'times', 'post', 'journal',
+  'breaking', 'update', 'latest', 'live', 'watch', 'read', 'more', 'click', 'video'
+]);
 
 function TrendingTopics() {
   const { news } = useStore();
 
   const trendingData = useMemo(() => {
-    if (!news || news.length === 0) return { topics: [], categories: {} };
+    if (!news || news.length === 0) return { topics: [], phrases: [] };
 
-    const topicCounts = {};
-    const topicCategories = {};
-    const topicNews = {};
+    const wordCounts = {};
+    const wordNews = {};
+    const phrasesCounts = {};
+    const phrasesNews = {};
 
-    // Combine all news text
     news.forEach(item => {
-      const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+      const text = `${item.title} ${item.summary || ''}`;
 
-      // Check each category
-      Object.entries(TOPIC_CATEGORIES).forEach(([category, keywords]) => {
-        keywords.forEach(keyword => {
-          if (text.includes(keyword)) {
-            const normalizedKey = keyword.charAt(0).toUpperCase() + keyword.slice(1);
-            topicCounts[normalizedKey] = (topicCounts[normalizedKey] || 0) + 1;
-            topicCategories[normalizedKey] = category;
+      // Extract individual words
+      const words = text
+        .toLowerCase()
+        .replace(/[^\w\s'-]/g, ' ')
+        .split(/\s+/)
+        .filter(word =>
+          word.length > 2 &&
+          !STOP_WORDS.has(word) &&
+          !/^\d+$/.test(word)
+        );
 
-            if (!topicNews[normalizedKey]) {
-              topicNews[normalizedKey] = [];
-            }
-            if (topicNews[normalizedKey].length < 3) {
-              topicNews[normalizedKey].push({
-                id: item.id,
-                title: item.title,
-                source: item.source
-              });
-            }
+      // Count words
+      const seenWords = new Set();
+      words.forEach(word => {
+        if (!seenWords.has(word)) {
+          seenWords.add(word);
+          wordCounts[word] = (wordCounts[word] || 0) + 1;
+
+          if (!wordNews[word]) wordNews[word] = [];
+          if (wordNews[word].length < 3) {
+            wordNews[word].push({
+              id: item.id,
+              title: item.title,
+              source: item.source
+            });
           }
-        });
+        }
       });
+
+      // Extract 2-word phrases (bigrams) from title only for better quality
+      const titleWords = item.title
+        .toLowerCase()
+        .replace(/[^\w\s'-]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 2 && !/^\d+$/.test(word));
+
+      for (let i = 0; i < titleWords.length - 1; i++) {
+        const w1 = titleWords[i];
+        const w2 = titleWords[i + 1];
+
+        // Skip if either word is a stop word
+        if (STOP_WORDS.has(w1) || STOP_WORDS.has(w2)) continue;
+
+        const phrase = `${w1} ${w2}`;
+        phrasesCounts[phrase] = (phrasesCounts[phrase] || 0) + 1;
+
+        if (!phrasesNews[phrase]) phrasesNews[phrase] = [];
+        if (phrasesNews[phrase].length < 3) {
+          phrasesNews[phrase].push({
+            id: item.id,
+            title: item.title,
+            source: item.source
+          });
+        }
+      }
     });
 
-    // Sort by count and get top topics
-    const sortedTopics = Object.entries(topicCounts)
+    // Get max count for intensity calculation
+    const maxCount = Math.max(...Object.values(wordCounts), 1);
+
+    // Sort and get top words
+    const topWords = Object.entries(wordCounts)
+      .filter(([word, count]) => count >= 2) // At least 2 mentions
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 20)
-      .map(([topic, count]) => ({
-        topic,
+      .slice(0, 30)
+      .map(([word, count]) => ({
+        text: word.charAt(0).toUpperCase() + word.slice(1),
         count,
-        category: topicCategories[topic],
-        news: topicNews[topic] || [],
-        intensity: count > 10 ? 'hot' : count > 5 ? 'warm' : 'normal'
+        news: wordNews[word] || [],
+        intensity: count >= maxCount * 0.6 ? 'hot' : count >= maxCount * 0.3 ? 'warm' : 'normal'
       }));
 
-    // Group by category for display
-    const byCategory = {
-      regions: sortedTopics.filter(t => t.category === 'regions').slice(0, 6),
-      entities: sortedTopics.filter(t => t.category === 'entities').slice(0, 4),
-      leaders: sortedTopics.filter(t => t.category === 'leaders').slice(0, 5),
-      topics: sortedTopics.filter(t => t.category === 'topics').slice(0, 8)
-    };
+    // Sort and get top phrases (at least 2 occurrences)
+    const topPhrases = Object.entries(phrasesCounts)
+      .filter(([phrase, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([phrase, count]) => ({
+        text: phrase.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+        count,
+        news: phrasesNews[phrase] || [],
+        intensity: count >= 5 ? 'hot' : count >= 3 ? 'warm' : 'normal'
+      }));
 
-    return { topics: sortedTopics, categories: byCategory };
+    return { topics: topWords, phrases: topPhrases };
   }, [news]);
-
-  const getCategoryIcon = (category) => {
-    switch (category) {
-      case 'regions': return Globe;
-      case 'entities': return Building2;
-      case 'leaders': return Users;
-      default: return Hash;
-    }
-  };
 
   const getIntensityStyle = (intensity) => {
     switch (intensity) {
@@ -87,16 +139,6 @@ function TrendingTopics() {
         return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
       default:
         return 'bg-intel-600 text-gray-300 border-intel-500';
-    }
-  };
-
-  const getCategoryLabel = (category) => {
-    switch (category) {
-      case 'regions': return 'Regions';
-      case 'entities': return 'Organizations';
-      case 'leaders': return 'Key Figures';
-      case 'topics': return 'Topics';
-      default: return category;
     }
   };
 
@@ -122,86 +164,107 @@ function TrendingTopics() {
           </div>
         ) : (
           <>
-            {/* Top trending - horizontal scroll */}
+            {/* Top trending phrases */}
+            {trendingData.phrases.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Flame className="w-4 h-4 text-red-400" />
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Trending Phrases</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {trendingData.phrases.map(item => (
+                    <div
+                      key={item.text}
+                      className={`group relative px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors cursor-default ${getIntensityStyle(item.intensity)}`}
+                    >
+                      <span>{item.text}</span>
+                      <span className="ml-2 opacity-60">{item.count}</span>
+
+                      {/* Tooltip */}
+                      {item.news.length > 0 && (
+                        <div className="absolute bottom-full left-0 mb-2 w-72 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                          <div className="text-xs text-gray-400 mb-1">Related headlines:</div>
+                          {item.news.map(n => (
+                            <div key={n.id} className="text-xs text-gray-300 line-clamp-2 mb-1">
+                              {n.title}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top words */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Flame className="w-4 h-4 text-red-400" />
+                <Hash className="w-4 h-4 text-amber-400" />
                 <span className="text-xs text-gray-400 uppercase tracking-wide">Most Mentioned</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {trendingData.topics.slice(0, 8).map(item => (
+                {trendingData.topics.slice(0, 12).map(item => (
                   <div
-                    key={item.topic}
-                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors cursor-default ${getIntensityStyle(item.intensity)}`}
-                    title={`${item.count} mentions`}
+                    key={item.text}
+                    className={`group relative px-2.5 py-1 rounded-md border text-xs transition-colors cursor-default ${getIntensityStyle(item.intensity)}`}
                   >
-                    <span>{item.topic}</span>
-                    <span className="ml-2 opacity-60">{item.count}</span>
+                    <span>{item.text}</span>
+                    <span className="ml-1.5 opacity-50">{item.count}</span>
+
+                    {/* Tooltip */}
+                    {item.news.length > 0 && (
+                      <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                        <div className="text-xs text-gray-400 mb-1">Related headlines:</div>
+                        {item.news.map(n => (
+                          <div key={n.id} className="text-xs text-gray-300 line-clamp-1 mb-1">
+                            {n.title}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* By category */}
-            {Object.entries(trendingData.categories).map(([category, items]) => {
-              if (items.length === 0) return null;
-              const Icon = getCategoryIcon(category);
+            {/* Word cloud for remaining */}
+            {trendingData.topics.length > 12 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Also Trending</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {trendingData.topics.slice(12).map(item => {
+                    const maxCount = trendingData.topics[0]?.count || 1;
+                    const size = 0.7 + (item.count / maxCount) * 0.4;
 
-              return (
-                <div key={category}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs text-gray-400 uppercase tracking-wide">
-                      {getCategoryLabel(category)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {items.map(item => (
-                      <div
-                        key={item.topic}
-                        className={`group relative px-2.5 py-1 rounded-md border text-xs transition-colors cursor-default ${getIntensityStyle(item.intensity)}`}
+                    return (
+                      <span
+                        key={item.text}
+                        className="group relative px-2 py-0.5 bg-intel-700/50 text-gray-400 rounded hover:bg-intel-600 hover:text-gray-300 transition-colors cursor-default"
+                        style={{ fontSize: `${size}rem` }}
                       >
-                        <span>{item.topic}</span>
-                        <span className="ml-1.5 opacity-50">{item.count}</span>
+                        {item.text}
 
-                        {/* Tooltip with related news */}
+                        {/* Tooltip */}
                         {item.news.length > 0 && (
-                          <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                            <div className="text-xs text-gray-400 mb-1">Related headlines:</div>
-                            {item.news.map(n => (
-                              <div key={n.id} className="text-xs text-gray-300 line-clamp-1 mb-1">
+                          <div className="absolute bottom-full left-0 mb-2 w-56 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 text-xs">
+                            <div className="text-gray-400 mb-1">{item.count} mentions</div>
+                            {item.news.slice(0, 2).map(n => (
+                              <div key={n.id} className="text-gray-300 line-clamp-1 mb-1">
                                 {n.title}
                               </div>
                             ))}
                           </div>
                         )}
-                      </div>
-                    ))}
-                  </div>
+                      </span>
+                    );
+                  })}
                 </div>
-              );
-            })}
-
-            {/* Word cloud style display for remaining */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Hash className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-400 uppercase tracking-wide">All Trending</span>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {trendingData.topics.slice(8).map(item => (
-                  <span
-                    key={item.topic}
-                    className="px-2 py-0.5 text-xs bg-intel-700/50 text-gray-400 rounded hover:bg-intel-600 hover:text-gray-300 transition-colors cursor-default"
-                    style={{
-                      fontSize: `${Math.min(0.75 + (item.count / 20), 1)}rem`
-                    }}
-                  >
-                    {item.topic}
-                  </span>
-                ))}
-              </div>
-            </div>
+            )}
           </>
         )}
       </div>
@@ -212,14 +275,14 @@ function TrendingTopics() {
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <div className="w-2 h-2 rounded bg-red-500"></div>
-              Hot (10+)
+              Hot
             </span>
             <span className="flex items-center gap-1">
               <div className="w-2 h-2 rounded bg-amber-500"></div>
-              Warm (5+)
+              Warm
             </span>
           </div>
-          <span>Updates with news feed</span>
+          <span>Extracted from current news</span>
         </div>
       </div>
     </div>
