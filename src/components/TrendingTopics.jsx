@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { Plus, Check } from 'lucide-react';
 
 // Common stop words to filter out
 const STOP_WORDS = new Set([
@@ -31,26 +31,12 @@ const STOP_WORDS = new Set([
 ]);
 
 function TrendingTopics() {
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
+  const navigate = useNavigate();
+  const { news } = useStore();
 
-  const toggleTopicWatchlist = (topic) => {
-    const topicId = `topic-${topic.text.toLowerCase().replace(/\s+/g, '-')}`;
-    if (isInWatchlist(topicId)) {
-      removeFromWatchlist(topicId);
-    } else {
-      addToWatchlist({
-        id: topicId,
-        type: 'topic',
-        name: topic.text,
-        count: topic.count,
-        createdAt: new Date().toISOString()
-      });
-    }
-  };
-
-  const isTopicWatched = (topic) => {
-    const topicId = `topic-${topic.text.toLowerCase().replace(/\s+/g, '-')}`;
-    return isInWatchlist(topicId);
+  const handleTopicClick = (topic) => {
+    const encodedTopic = encodeURIComponent(topic.text);
+    navigate(`/topic/${encodedTopic}`);
   };
 
   const topics = useMemo(() => {
@@ -101,28 +87,16 @@ function TrendingTopics() {
     <div>
       <h2 className="text-lg font-bold text-white mb-4">Trends</h2>
       <div className="space-y-3">
-        {topics.map((topic, index) => {
-          const watched = isTopicWatched(topic);
-          return (
-            <div key={topic.text} className="group flex items-start justify-between">
-              <div>
-                <p className="text-white text-[15px] leading-tight">{topic.text}</p>
-                <p className="text-gray-500 text-xs mt-0.5">{topic.count} mentions</p>
-              </div>
-              <button
-                onClick={() => toggleTopicWatchlist(topic)}
-                className={`p-1 rounded transition-colors ${
-                  watched
-                    ? 'text-blue-400'
-                    : 'text-gray-600 hover:text-gray-400'
-                }`}
-                title={watched ? 'Tracking' : 'Track'}
-              >
-                {watched ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              </button>
-            </div>
-          );
-        })}
+        {topics.map((topic) => (
+          <button
+            key={topic.text}
+            onClick={() => handleTopicClick(topic)}
+            className="w-full text-left group hover:bg-intel-800 -mx-2 px-2 py-1 rounded transition-colors"
+          >
+            <p className="text-white text-[15px] leading-tight group-hover:text-blue-400">{topic.text}</p>
+            <p className="text-gray-500 text-xs mt-0.5">{topic.count} mentions</p>
+          </button>
+        ))}
       </div>
     </div>
   );

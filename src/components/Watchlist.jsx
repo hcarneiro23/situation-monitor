@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { X, Newspaper, Hash, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, Newspaper, ChevronRight, ChevronDown } from 'lucide-react';
 
 function Watchlist() {
   const navigate = useNavigate();
@@ -15,20 +15,8 @@ function Watchlist() {
     }));
   };
 
-  // Separate tracked posts and topics
+  // Get tracked posts only
   const trackedPosts = watchlist.filter(item => item.type === 'news');
-  const trackedTopics = watchlist.filter(item => item.type === 'topic');
-
-  // Count mentions for topics
-  const getTopicMentions = (topicName) => {
-    const name = topicName.toLowerCase();
-    return news.filter(item => {
-      const text = `${item.title} ${item.summary || ''}`.toLowerCase();
-      return text.includes(name);
-    }).length;
-  };
-
-  const totalTracked = trackedPosts.length + trackedTopics.length;
 
   const handleNewsClick = (newsId) => {
     navigate(`/post/${newsId}`);
@@ -38,10 +26,10 @@ function Watchlist() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-white">Tracking</h2>
-        <span className="text-xs text-gray-500">{totalTracked} items</span>
+        <span className="text-xs text-gray-500">{trackedPosts.length} items</span>
       </div>
 
-      {totalTracked === 0 ? (
+      {trackedPosts.length === 0 ? (
         <div className="text-center py-6">
           <p className="text-gray-500 text-sm">Nothing tracked yet</p>
           <p className="text-gray-600 text-xs mt-1">Tap the bell on posts to track similar stories</p>
@@ -112,28 +100,6 @@ function Watchlist() {
             );
           })}
 
-          {/* Tracked Topics */}
-          {trackedTopics.map(item => {
-            const mentions = getTopicMentions(item.name);
-            return (
-              <div key={item.id} className="flex items-start gap-3">
-                <Hash className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm leading-tight">{item.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {mentions} mentions
-                  </p>
-                </div>
-                <button
-                  onClick={() => removeFromWatchlist(item.id)}
-                  className="p-1 text-gray-600 hover:text-red-400 transition-colors"
-                  title="Stop tracking"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            );
-          })}
         </div>
       )}
     </div>

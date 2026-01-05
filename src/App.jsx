@@ -8,6 +8,7 @@ import TrendingTopics from './components/TrendingTopics';
 import Watchlist from './components/Watchlist';
 import AlertPanel from './components/AlertPanel';
 import PostDetail from './components/PostDetail';
+import TopicDetail from './components/TopicDetail';
 import Onboarding from './components/Onboarding';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
@@ -185,6 +186,9 @@ function App() {
           <Routes>
             {/* Post detail page */}
             <Route path="/post/:postId" element={<PostDetail />} />
+
+            {/* Topic detail page */}
+            <Route path="/topic/:topic" element={<TopicDetail />} />
 
             {/* Main feed */}
             <Route path="*" element={
