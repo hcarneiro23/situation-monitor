@@ -1,11 +1,12 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
 import { useAuth } from '../context/AuthContext';
-import { Wifi, WifiOff, LogOut, User } from 'lucide-react';
+import { Bell, LogOut, User } from 'lucide-react';
 
 function Header() {
-  const { isConnected } = useStore();
+  const { isConnected, alerts } = useStore();
   const { user, signOut } = useAuth();
+  const unreadCount = alerts.filter(a => !a.read).length;
 
   const handleSignOut = async () => {
     try {
@@ -27,25 +28,38 @@ function Header() {
                  title={isConnected ? 'Live' : 'Offline'} />
           </div>
 
-          {/* User */}
-          {user && (
-            <div className="flex items-center gap-3">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-intel-700 flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-400" />
-                </div>
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            {/* Notifications */}
+            <button className="relative p-2 rounded-full hover:bg-intel-700 transition-colors">
+              <Bell className="w-5 h-5 text-gray-400" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 w-4 h-4 bg-blue-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
               )}
-              <button
-                onClick={handleSignOut}
-                className="p-2 rounded-full hover:bg-intel-700 transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
-          )}
+            </button>
+
+            {/* User */}
+            {user && (
+              <div className="flex items-center gap-2">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-intel-700 flex items-center justify-center">
+                    <User className="w-4 h-4 text-gray-400" />
+                  </div>
+                )}
+                <button
+                  onClick={handleSignOut}
+                  className="p-2 rounded-full hover:bg-intel-700 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

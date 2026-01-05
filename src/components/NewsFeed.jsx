@@ -1,417 +1,251 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import {
-  Newspaper, Filter, ChevronDown, ChevronUp, ExternalLink,
-  TrendingUp, Clock, Globe, Bookmark, BookmarkCheck, ArrowUpDown
-} from 'lucide-react';
+import { MessageCircle, Repeat2, Heart, Share, ExternalLink, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 
-// Safely parse a date string and return timestamp (for sorting)
-function getTimestamp(dateStr) {
-  if (!dateStr) return 0;
+// Source logo colors for fallback avatars
+const SOURCE_COLORS = {
+  'Reuters': '#ff8000',
+  'BBC': '#bb1919',
+  'Al Jazeera': '#fa9000',
+  'Financial Times': '#fff1e5',
+  'Bloomberg': '#2800d7',
+  'CNBC': '#005594',
+  'CNN': '#cc0000',
+  'The Guardian': '#052962',
+  'AP News': '#ff322e',
+  'MarketWatch': '#00ac4e',
+  'Yahoo Finance': '#6001d2',
+  'default': '#1d9bf0'
+};
 
+// Get favicon URL for a source
+function getSourceLogo(link) {
   try {
-    // Try parsing as ISO first (most reliable)
-    const isoDate = parseISO(dateStr);
-    if (isValid(isoDate)) return isoDate.getTime();
-
-    // Fallback to native Date parsing
-    const nativeDate = new Date(dateStr);
-    if (isValid(nativeDate)) return nativeDate.getTime();
-  } catch (e) {
-    // Parsing failed
-  }
-
-  return 0; // Invalid dates sort to the end
+    if (link) {
+      const url = new URL(link);
+      return `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=64`;
+    }
+  } catch (e) {}
+  return null;
 }
 
-// Safely format a date for display
-function safeFormatDistanceToNow(dateStr) {
-  if (!dateStr) return 'Unknown';
+// Get source initials for fallback
+function getSourceInitials(source) {
+  if (!source) return '?';
+  return source.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
 
+// Get color for source
+function getSourceColor(source) {
+  return SOURCE_COLORS[source] || SOURCE_COLORS.default;
+}
+
+// Safely format date
+function formatDate(dateStr) {
+  if (!dateStr) return '';
   try {
     const date = parseISO(dateStr);
     if (isValid(date)) {
-      return formatDistanceToNow(date, { addSuffix: true });
+      return formatDistanceToNow(date, { addSuffix: false });
     }
-
     const nativeDate = new Date(dateStr);
     if (isValid(nativeDate)) {
-      return formatDistanceToNow(nativeDate, { addSuffix: true });
+      return formatDistanceToNow(nativeDate, { addSuffix: false });
     }
-  } catch (e) {
-    // Parsing failed
-  }
-
-  return 'Unknown';
+  } catch (e) {}
+  return '';
 }
 
-function NewsFeed() {
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, expandedNews, setExpandedNews } = useStore();
-  const [filter, setFilter] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
-  const [clusterView, setClusterView] = useState(false);
-  const [sortOrder, setSortOrder] = useState('latest');
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
+// Tweet-like news item component
+function NewsItem({ item }) {
+  const [imgError, setImgError] = useState(false);
+  const logoUrl = getSourceLogo(item.link);
 
-  // Cluster news by theme
-  const clusteredNews = useMemo(() => {
-    const clusters = {};
-    news.forEach(item => {
-      const text = `${item.title} ${item.summary}`.toLowerCase();
-      let cluster = 'Other';
-
-      if (text.includes('china') && (text.includes('us') || text.includes('tariff') || text.includes('trade'))) {
-        cluster = 'US-China Relations';
-      } else if (text.includes('russia') || text.includes('ukraine')) {
-        cluster = 'Russia-Ukraine';
-      } else if (text.includes('israel') || text.includes('iran') || text.includes('saudi') || text.includes('gaza')) {
-        cluster = 'Middle East';
-      } else if (text.includes('fed ') || text.includes('ecb') || text.includes('central bank') || text.includes('interest rate')) {
-        cluster = 'Central Banks';
-      } else if (text.includes('oil') || text.includes('gas') || text.includes('energy')) {
-        cluster = 'Energy';
-      } else if (text.includes('chip') || text.includes('semiconductor') || text.includes('tech')) {
-        cluster = 'Technology';
-      }
-
-      if (!clusters[cluster]) clusters[cluster] = [];
-      clusters[cluster].push(item);
-    });
-
-    return clusters;
-  }, [news]);
-
-  // Filter and sort news
-  const filteredNews = useMemo(() => {
-    // Always create a new array to ensure proper re-rendering
-    let result = [...news];
-
-    // Apply filter
-    if (filter === 'high') {
-      result = result.filter(n => n.relevanceScore >= 7);
-    } else if (filter === 'signals') {
-      result = result.filter(n => n.isSignal);
-    } else if (filter === 'new') {
-      result = result.filter(n => n.isNew);
-    }
-
-    // Apply sort - always sort to ensure correct order
-    if (sortOrder === 'relevance') {
-      result.sort((a, b) => {
-        const scoreDiff = (b.relevanceScore || 0) - (a.relevanceScore || 0);
-        if (scoreDiff !== 0) return scoreDiff;
-        // Tiebreaker: newest first
-        return getTimestamp(b.pubDate) - getTimestamp(a.pubDate);
-      });
-    } else {
-      // Default: sort by date (latest first)
-      result.sort((a, b) => getTimestamp(b.pubDate) - getTimestamp(a.pubDate));
-    }
-
-    return result;
-  }, [news, filter, sortOrder]);
-
-  const getSignalStrengthBadge = (strength) => {
-    switch (strength) {
-      case 'confirmed':
-        return <span className="badge badge-high">Confirmed</span>;
-      case 'building':
-        return <span className="badge badge-medium">Building</span>;
-      case 'early':
-        return <span className="badge badge-low">Early</span>;
-      default:
-        return null;
-    }
-  };
-
-  const getRelevanceIndicator = (score) => {
-    const bars = Math.ceil(score / 2);
-    return (
-      <div className="flex gap-0.5">
-        {[...Array(5)].map((_, i) => (
-          <div
-            key={i}
-            className={`w-1 h-3 rounded-sm ${
-              i < bars
-                ? score >= 7 ? 'bg-red-400' : score >= 5 ? 'bg-amber-400' : 'bg-blue-400'
-                : 'bg-intel-600'
-            }`}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const toggleWatchlist = (item) => {
-    if (isInWatchlist(item.id)) {
-      removeFromWatchlist(item.id);
-    } else {
-      addToWatchlist({
-        id: item.id,
-        type: 'news',
-        name: item.title.slice(0, 50),
-        data: item
-      });
+  const handleClick = () => {
+    if (item.link) {
+      window.open(item.link, '_blank', 'noopener,noreferrer');
     }
   };
 
   return (
-    <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden h-full flex flex-col" id="news">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-intel-700 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="font-semibold text-white">What's Happening</h2>
-          <span className="text-xs text-gray-500">({filteredNews.length})</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Sort dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-intel-700 rounded-lg text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowUpDown className="w-3 h-3" />
-              {sortOrder === 'latest' ? 'Latest' : 'Relevance'}
-              <ChevronDown className={`w-3 h-3 transition-transform ${showSortDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            {showSortDropdown && (
-              <div className="absolute top-full right-0 mt-1 w-32 bg-intel-800 border border-intel-600 rounded-lg shadow-xl z-50 py-1">
-                <button
-                  onClick={() => { setSortOrder('latest'); setShowSortDropdown(false); }}
-                  className={`w-full px-3 py-1.5 text-xs text-left hover:bg-intel-700 ${sortOrder === 'latest' ? 'text-blue-400' : 'text-gray-300'}`}
-                >
-                  Latest
-                </button>
-                <button
-                  onClick={() => { setSortOrder('relevance'); setShowSortDropdown(false); }}
-                  className={`w-full px-3 py-1.5 text-xs text-left hover:bg-intel-700 ${sortOrder === 'relevance' ? 'text-blue-400' : 'text-gray-300'}`}
-                >
-                  Relevance
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Cluster toggle */}
-          <button
-            onClick={() => setClusterView(!clusterView)}
-            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-              clusterView ? 'bg-blue-500/20 text-blue-400' : 'bg-intel-700 text-gray-400 hover:text-white'
-            }`}
-          >
-            Cluster
-          </button>
-
-          {/* Filter toggle */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-intel-700 rounded-lg text-gray-400 hover:text-white transition-colors"
-          >
-            <Filter className="w-3 h-3" />
-            Filter
-            {showFilters ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      {showFilters && (
-        <div className="px-4 py-2 border-b border-intel-700 bg-intel-700/30 flex gap-2">
-          {[
-            { value: 'all', label: 'All' },
-            { value: 'high', label: 'High Relevance' },
-            { value: 'signals', label: 'Signals Only' },
-            { value: 'new', label: 'New Info' }
-          ].map(f => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-3 py-1 text-xs rounded-lg transition-colors ${
-                filter === f.value
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-intel-600 text-gray-400 hover:text-white'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* News list - key forces re-render when sort/filter changes */}
-      <div key={`${sortOrder}-${filter}`} className="divide-y divide-intel-700 flex-1 overflow-y-auto">
-        {clusterView ? (
-          // Clustered view
-          Object.entries(clusteredNews).map(([cluster, items]) => (
-            items.length > 0 && (
-              <div key={cluster}>
-                <div className="px-4 py-2 bg-intel-700/50 text-xs font-medium text-gray-400 uppercase tracking-wide sticky top-0">
-                  {cluster} ({items.length})
-                </div>
-                {items.slice(0, 5).map((item, idx) => (
-                  <NewsItem
-                    key={`${item.id}-${idx}`}
-                    item={item}
-                    expanded={expandedNews === item.id}
-                    onToggle={() => setExpandedNews(expandedNews === item.id ? null : item.id)}
-                    onWatchlistToggle={() => toggleWatchlist(item)}
-                    isWatched={isInWatchlist(item.id)}
-                    getSignalStrengthBadge={getSignalStrengthBadge}
-                    getRelevanceIndicator={getRelevanceIndicator}
-                  />
-                ))}
-              </div>
-            )
-          ))
-        ) : (
-          // List view
-          filteredNews.slice(0, 50).map((item, idx) => (
-            <NewsItem
-              key={`${item.id}-${idx}`}
-              item={item}
-              expanded={expandedNews === item.id}
-              onToggle={() => setExpandedNews(expandedNews === item.id ? null : item.id)}
-              onWatchlistToggle={() => toggleWatchlist(item)}
-              isWatched={isInWatchlist(item.id)}
-              getSignalStrengthBadge={getSignalStrengthBadge}
-              getRelevanceIndicator={getRelevanceIndicator}
+    <article
+      className="px-4 py-3 border-b border-intel-700 hover:bg-intel-800/50 transition-colors cursor-pointer"
+      onClick={handleClick}
+    >
+      <div className="flex gap-3">
+        {/* Source avatar */}
+        <div className="flex-shrink-0">
+          {logoUrl && !imgError ? (
+            <img
+              src={logoUrl}
+              alt=""
+              className="w-10 h-10 rounded-full bg-intel-700 object-cover"
+              onError={() => setImgError(true)}
             />
-          ))
-        )}
-
-        {filteredNews.length === 0 && (
-          <div className="p-8 text-center text-gray-500">
-            <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No news items match your filter</p>
-          </div>
-        )}
-      </div>
-
-      {/* Click outside to close dropdown */}
-      {showSortDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowSortDropdown(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-function NewsItem({ item, expanded, onToggle, onWatchlistToggle, isWatched, getSignalStrengthBadge, getRelevanceIndicator }) {
-  return (
-    <div className={`p-4 hover:bg-intel-700/30 transition-colors ${item.isNew ? 'border-l-2 border-blue-500' : ''}`}>
-      {/* Main row */}
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          {/* Source and time */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium text-blue-400">{item.source}</span>
-            <span className="text-xs text-gray-500">
-              {safeFormatDistanceToNow(item.pubDate)}
-            </span>
-            {item.isNew && (
-              <span className="px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded">NEW</span>
-            )}
-            {getSignalStrengthBadge(item.signalStrength)}
-          </div>
-
-          {/* Title */}
-          <h3
-            className="text-sm font-medium text-gray-200 cursor-pointer hover:text-white line-clamp-2"
-            onClick={onToggle}
-          >
-            {item.title}
-          </h3>
-
-          {/* Why it matters (always visible) */}
-          <p className="text-xs text-gray-400 mt-1 flex items-start gap-1">
-            <TrendingUp className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-400" />
-            {item.whyItMatters}
-          </p>
+          ) : (
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+              style={{ backgroundColor: getSourceColor(item.source) }}
+            >
+              {getSourceInitials(item.source)}
+            </div>
+          )}
         </div>
 
-        {/* Right side - relevance and actions */}
-        <div className="flex flex-col items-end gap-2">
-          {getRelevanceIndicator(item.relevanceScore)}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onWatchlistToggle}
-              className="p-1 hover:bg-intel-600 rounded transition-colors"
-              title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-center gap-1 text-sm">
+            <span className="font-bold text-white hover:underline">{item.source}</span>
+            <span className="text-gray-500">·</span>
+            <span className="text-gray-500">{formatDate(item.pubDate)}</span>
+            <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+              <button className="p-1.5 rounded-full hover:bg-intel-700 transition-colors">
+                <MoreHorizontal className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+          </div>
+
+          {/* Title as main tweet text */}
+          <p className="text-[15px] text-white mt-0.5 leading-snug">{item.title}</p>
+
+          {/* Summary as additional context */}
+          {item.summary && (
+            <p className="text-[14px] text-gray-400 mt-1 line-clamp-2">{item.summary}</p>
+          )}
+
+          {/* Link preview card */}
+          {item.link && (
+            <div
+              className="mt-3 border border-intel-600 rounded-2xl overflow-hidden hover:bg-intel-700/30 transition-colors"
+              onClick={(e) => e.stopPropagation()}
             >
-              {isWatched ? (
-                <BookmarkCheck className="w-4 h-4 text-blue-400" />
-              ) : (
-                <Bookmark className="w-4 h-4 text-gray-500" />
-              )}
-            </button>
-            {item.link && (
               <a
                 href={item.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 hover:bg-intel-600 rounded transition-colors"
-                title="Open source"
+                className="block px-3 py-2"
               >
-                <ExternalLink className="w-4 h-4 text-gray-500" />
+                <div className="flex items-center gap-2 text-gray-500">
+                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  <span className="text-xs truncate">
+                    {(() => {
+                      try {
+                        return new URL(item.link).hostname.replace('www.', '');
+                      } catch (e) {
+                        return item.link;
+                      }
+                    })()}
+                  </span>
+                </div>
               </a>
-            )}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center justify-between mt-3 max-w-[400px]" onClick={(e) => e.stopPropagation()}>
+            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group">
+              <div className="p-2 rounded-full group-hover:bg-blue-400/10 -ml-2">
+                <MessageCircle className="w-[18px] h-[18px]" />
+              </div>
+            </button>
+            <button className="flex items-center gap-1 text-gray-500 hover:text-green-400 transition-colors group">
+              <div className="p-2 rounded-full group-hover:bg-green-400/10">
+                <Repeat2 className="w-[18px] h-[18px]" />
+              </div>
+            </button>
+            <button className="flex items-center gap-1 text-gray-500 hover:text-pink-400 transition-colors group">
+              <div className="p-2 rounded-full group-hover:bg-pink-400/10">
+                <Heart className="w-[18px] h-[18px]" />
+              </div>
+            </button>
+            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group">
+              <div className="p-2 rounded-full group-hover:bg-blue-400/10">
+                <Share className="w-[18px] h-[18px]" />
+              </div>
+            </button>
           </div>
         </div>
       </div>
+    </article>
+  );
+}
 
-      {/* Expanded details */}
-      {expanded && (
-        <div className="mt-3 pt-3 border-t border-intel-600 animate-slide-in">
-          {/* Summary */}
-          {item.summary && (
-            <p className="text-sm text-gray-300 mb-3">{item.summary}</p>
-          )}
+function NewsFeed() {
+  const { news } = useStore();
+  const [displayCount, setDisplayCount] = useState(20);
+  const [loading, setLoading] = useState(false);
+  const loaderRef = useRef(null);
 
-          {/* Details grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            {/* Regions */}
-            {item.regions && item.regions.length > 0 && (
-              <div>
-                <span className="text-gray-500 block mb-1">Regions</span>
-                <div className="flex flex-wrap gap-1">
-                  {item.regions.map(r => (
-                    <span key={r} className="px-2 py-0.5 bg-intel-600 rounded text-gray-300 capitalize">
-                      {r}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+  // Sort by date (newest first)
+  const sortedNews = [...news].sort((a, b) => {
+    const dateA = new Date(a.pubDate).getTime() || 0;
+    const dateB = new Date(b.pubDate).getTime() || 0;
+    return dateB - dateA;
+  });
 
-            {/* Exposed Markets */}
-            {item.exposedMarkets && item.exposedMarkets.length > 0 && (
-              <div>
-                <span className="text-gray-500 block mb-1">Exposed Markets</span>
-                <div className="flex flex-wrap gap-1">
-                  {item.exposedMarkets.slice(0, 4).map(m => (
-                    <span key={m} className="px-2 py-0.5 bg-intel-600 rounded text-gray-300">
-                      {m}
-                    </span>
-                  ))}
-                  {item.exposedMarkets.length > 4 && (
-                    <span className="text-gray-500">+{item.exposedMarkets.length - 4}</span>
-                  )}
-                </div>
-              </div>
-            )}
+  const displayedNews = sortedNews.slice(0, displayCount);
+  const hasMore = displayCount < sortedNews.length;
 
-            {/* Transmission Channel */}
-            <div className="col-span-2">
-              <span className="text-gray-500 block mb-1">Transmission Channel</span>
-              <span className="text-gray-300">{item.transmissionChannel}</span>
-            </div>
-          </div>
+  // Infinite scroll using Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setLoading(true);
+          setTimeout(() => {
+            setDisplayCount(prev => Math.min(prev + 15, sortedNews.length));
+            setLoading(false);
+          }, 300);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, loading, sortedNews.length]);
+
+  return (
+    <div className="h-full flex flex-col bg-intel-900">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
+        <div className="px-4 py-3">
+          <h2 className="text-xl font-bold text-white">What's Happening</h2>
         </div>
-      )}
+      </div>
+
+      {/* Feed */}
+      <div className="flex-1 overflow-y-auto">
+        {sortedNews.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <p className="text-lg">No news yet</p>
+            <p className="text-sm mt-1">News will appear here as they come in</p>
+          </div>
+        ) : (
+          <>
+            {displayedNews.map((item, idx) => (
+              <NewsItem key={`${item.id}-${idx}`} item={item} />
+            ))}
+
+            {/* Loading indicator / Infinite scroll trigger */}
+            <div ref={loaderRef} className="py-6">
+              {loading && (
+                <div className="flex justify-center">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {!hasMore && sortedNews.length > 0 && (
+                <p className="text-center text-gray-600 text-sm">You're all caught up</p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
