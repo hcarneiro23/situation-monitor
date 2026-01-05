@@ -143,7 +143,7 @@ function TrendingTopics() {
   };
 
   return (
-    <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden h-full">
+    <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-intel-700 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -156,9 +156,9 @@ function TrendingTopics() {
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4 max-h-[550px] overflow-y-auto">
+      <div className="p-5 space-y-6 flex-1 overflow-y-auto">
         {trendingData.topics.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-12 text-gray-500">
             <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p>Loading trending topics...</p>
           </div>
@@ -167,25 +167,25 @@ function TrendingTopics() {
             {/* Top trending phrases */}
             {trendingData.phrases.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <Flame className="w-4 h-4 text-red-400" />
-                  <span className="text-xs text-gray-400 uppercase tracking-wide">Trending Phrases</span>
+                  <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Trending Phrases</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {trendingData.phrases.map(item => (
                     <div
                       key={item.text}
-                      className={`group relative px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors cursor-default ${getIntensityStyle(item.intensity)}`}
+                      className={`group relative px-4 py-2 rounded-lg border text-sm font-medium transition-all hover:scale-105 cursor-default ${getIntensityStyle(item.intensity)}`}
                     >
                       <span>{item.text}</span>
-                      <span className="ml-2 opacity-60">{item.count}</span>
+                      <span className="ml-2 opacity-60 text-xs">{item.count}</span>
 
                       {/* Tooltip */}
                       {item.news.length > 0 && (
-                        <div className="absolute bottom-full left-0 mb-2 w-72 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                          <div className="text-xs text-gray-400 mb-1">Related headlines:</div>
+                        <div className="absolute bottom-full left-0 mb-2 w-72 p-3 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                          <div className="text-xs text-gray-400 mb-2 font-medium">Related headlines:</div>
                           {item.news.map(n => (
-                            <div key={n.id} className="text-xs text-gray-300 line-clamp-2 mb-1">
+                            <div key={n.id} className="text-xs text-gray-300 line-clamp-2 mb-1.5 last:mb-0">
                               {n.title}
                             </div>
                           ))}
@@ -199,25 +199,25 @@ function TrendingTopics() {
 
             {/* Top words */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-3">
                 <Hash className="w-4 h-4 text-amber-400" />
-                <span className="text-xs text-gray-400 uppercase tracking-wide">Most Mentioned</span>
+                <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Most Mentioned</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {trendingData.topics.slice(0, 12).map(item => (
+              <div className="flex flex-wrap gap-2.5">
+                {trendingData.topics.slice(0, 15).map(item => (
                   <div
                     key={item.text}
-                    className={`group relative px-2.5 py-1 rounded-md border text-xs transition-colors cursor-default ${getIntensityStyle(item.intensity)}`}
+                    className={`group relative px-3 py-1.5 rounded-md border text-sm transition-all hover:scale-105 cursor-default ${getIntensityStyle(item.intensity)}`}
                   >
                     <span>{item.text}</span>
-                    <span className="ml-1.5 opacity-50">{item.count}</span>
+                    <span className="ml-2 opacity-50 text-xs">{item.count}</span>
 
                     {/* Tooltip */}
                     {item.news.length > 0 && (
-                      <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                        <div className="text-xs text-gray-400 mb-1">Related headlines:</div>
+                      <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                        <div className="text-xs text-gray-400 mb-2 font-medium">Related headlines:</div>
                         {item.news.map(n => (
-                          <div key={n.id} className="text-xs text-gray-300 line-clamp-1 mb-1">
+                          <div key={n.id} className="text-xs text-gray-300 line-clamp-1 mb-1.5 last:mb-0">
                             {n.title}
                           </div>
                         ))}
@@ -229,31 +229,31 @@ function TrendingTopics() {
             </div>
 
             {/* Word cloud for remaining */}
-            {trendingData.topics.length > 12 && (
+            {trendingData.topics.length > 15 && (
               <div>
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <TrendingUp className="w-4 h-4 text-gray-400" />
-                  <span className="text-xs text-gray-400 uppercase tracking-wide">Also Trending</span>
+                  <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Also Trending</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {trendingData.topics.slice(12).map(item => {
+                <div className="flex flex-wrap gap-2">
+                  {trendingData.topics.slice(15).map(item => {
                     const maxCount = trendingData.topics[0]?.count || 1;
-                    const size = 0.7 + (item.count / maxCount) * 0.4;
+                    const size = 0.75 + (item.count / maxCount) * 0.35;
 
                     return (
                       <span
                         key={item.text}
-                        className="group relative px-2 py-0.5 bg-intel-700/50 text-gray-400 rounded hover:bg-intel-600 hover:text-gray-300 transition-colors cursor-default"
+                        className="group relative px-2.5 py-1 bg-intel-700/50 text-gray-400 rounded-md hover:bg-intel-600 hover:text-gray-300 transition-all cursor-default"
                         style={{ fontSize: `${size}rem` }}
                       >
                         {item.text}
 
                         {/* Tooltip */}
                         {item.news.length > 0 && (
-                          <div className="absolute bottom-full left-0 mb-2 w-56 p-2 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 text-xs">
-                            <div className="text-gray-400 mb-1">{item.count} mentions</div>
+                          <div className="absolute bottom-full left-0 mb-2 w-56 p-2.5 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 text-xs">
+                            <div className="text-gray-400 mb-1.5 font-medium">{item.count} mentions</div>
                             {item.news.slice(0, 2).map(n => (
-                              <div key={n.id} className="text-gray-300 line-clamp-1 mb-1">
+                              <div key={n.id} className="text-gray-300 line-clamp-1 mb-1 last:mb-0">
                                 {n.title}
                               </div>
                             ))}
@@ -270,19 +270,19 @@ function TrendingTopics() {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-intel-700 bg-intel-700/30">
+      <div className="px-4 py-3 border-t border-intel-700 bg-intel-700/30 mt-auto">
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded bg-red-500"></div>
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
               Hot
             </span>
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded bg-amber-500"></div>
+            <span className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
               Warm
             </span>
           </div>
-          <span>Extracted from current news</span>
+          <span>Extracted from news</span>
         </div>
       </div>
     </div>
