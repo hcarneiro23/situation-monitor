@@ -200,10 +200,8 @@ function App() {
                     </div>
 
                     {/* Right sidebar - Trends & Watchlist */}
-                    <div className="hidden lg:block w-[350px] p-4 space-y-4">
-                      <div className="h-[calc(50vh-50px)]">
-                        <TrendingTopics />
-                      </div>
+                    <div className="hidden lg:block w-[350px] p-4 space-y-6">
+                      <TrendingTopics />
                       <Watchlist />
                     </div>
                   </div>
