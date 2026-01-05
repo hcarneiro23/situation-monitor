@@ -3,20 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { MessageCircle, Heart, Share, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
-
-// Get liked items from localStorage
-function getLikedItems() {
-  try {
-    return JSON.parse(localStorage.getItem('likedNews') || '{}');
-  } catch {
-    return {};
-  }
-}
-
-// Save liked items to localStorage
-function setLikedItems(items) {
-  localStorage.setItem('likedNews', JSON.stringify(items));
-}
+import { likesService } from '../services/likes';
+import { commentsService } from '../services/comments';
+import { useAuth } from '../context/AuthContext';
 
 // Source logo colors for fallback avatars
 const SOURCE_COLORS = {
@@ -73,10 +62,11 @@ function formatDate(dateStr) {
 }
 
 // Tweet-like news item component
-function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNavigate }) {
+function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount }) {
   const [imgError, setImgError] = useState(false);
   const logoUrl = getSourceLogo(item.link);
-  const isLiked = likedItems[item.id];
+  const isLiked = likeData?.isLiked || false;
+  const likeCount = likeData?.count || 0;
 
   const handleClick = () => {
     onNavigate(item.id);
@@ -206,7 +196,7 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNaviga
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center gap-8 mt-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-6 mt-3" onClick={(e) => e.stopPropagation()}>
             {/* Reply - opens post page */}
             <button
               onClick={handleReply}
@@ -216,6 +206,7 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNaviga
               <div className="p-2 rounded-full group-hover:bg-blue-400/10 -ml-2">
                 <MessageCircle className="w-[18px] h-[18px]" />
               </div>
+              {replyCount > 0 && <span className="text-xs">{replyCount}</span>}
             </button>
 
             {/* Like */}
@@ -227,6 +218,7 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNaviga
               <div className="p-2 rounded-full group-hover:bg-pink-400/10">
                 <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-current' : ''}`} />
               </div>
+              {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
             </button>
 
             {/* Share */}
@@ -248,11 +240,46 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNaviga
 
 function NewsFeed() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
-  const [likedItems, setLikedItemsState] = useState(getLikedItems);
+  const [likesMap, setLikesMap] = useState({});
+  const [commentsMap, setCommentsMap] = useState({});
   const loaderRef = useRef(null);
+
+  // Subscribe to all likes
+  useEffect(() => {
+    const unsubscribe = likesService.subscribeToAllLikes((likes) => {
+      setLikesMap(likes);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to all comments (for reply counts)
+  useEffect(() => {
+    const unsubscribes = [];
+    const counts = {};
+
+    // Subscribe to comments for displayed posts
+    news.slice(0, displayCount).forEach(item => {
+      const unsub = commentsService.subscribeToComments(item.id, (comments) => {
+        // Count all comments (including nested)
+        const countAll = (commentList) => {
+          let count = commentList.length;
+          commentList.forEach(c => {
+            if (c.replies) count += countAll(c.replies);
+          });
+          return count;
+        };
+        counts[item.id] = countAll(comments);
+        setCommentsMap({ ...counts });
+      });
+      unsubscribes.push(unsub);
+    });
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [news, displayCount]);
 
   const handleNavigateToPost = (postId) => {
     navigate(`/post/${postId}`);
@@ -269,15 +296,13 @@ function NewsFeed() {
   const hasMore = displayCount < sortedNews.length;
 
   // Handle like toggle
-  const handleLike = (itemId) => {
-    const newLikedItems = { ...likedItems };
-    if (newLikedItems[itemId]) {
-      delete newLikedItems[itemId];
-    } else {
-      newLikedItems[itemId] = true;
+  const handleLike = async (itemId) => {
+    if (!user) return;
+    try {
+      await likesService.toggleLike(itemId, user.uid);
+    } catch (err) {
+      console.error('Failed to toggle like:', err);
     }
-    setLikedItemsState(newLikedItems);
-    setLikedItems(newLikedItems);
   };
 
   // Handle bookmark toggle
@@ -334,17 +359,24 @@ function NewsFeed() {
           </div>
         ) : (
           <>
-            {displayedNews.map((item, idx) => (
-              <NewsItem
-                key={`${item.id}-${idx}`}
-                item={item}
-                likedItems={likedItems}
-                onLike={handleLike}
-                onBookmark={handleBookmark}
-                isBookmarked={isInWatchlist(item.id)}
-                onNavigate={handleNavigateToPost}
-              />
-            ))}
+            {displayedNews.map((item, idx) => {
+              const postLikes = likesMap[item.id] || { count: 0, userIds: [] };
+              return (
+                <NewsItem
+                  key={`${item.id}-${idx}`}
+                  item={item}
+                  onLike={handleLike}
+                  onBookmark={handleBookmark}
+                  isBookmarked={isInWatchlist(item.id)}
+                  onNavigate={handleNavigateToPost}
+                  likeData={{
+                    count: postLikes.count,
+                    isLiked: user ? postLikes.userIds.includes(user.uid) : false
+                  }}
+                  replyCount={commentsMap[item.id] || 0}
+                />
+              );
+            })}
 
             {/* Loading indicator / Infinite scroll trigger */}
             <div ref={loaderRef} className="py-6">

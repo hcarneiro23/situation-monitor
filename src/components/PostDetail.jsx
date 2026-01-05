@@ -5,20 +5,7 @@ import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, Trash2,
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { commentsService } from '../services/comments';
-
-// Get liked items from localStorage
-function getLikedItems() {
-  try {
-    return JSON.parse(localStorage.getItem('likedNews') || '{}');
-  } catch {
-    return {};
-  }
-}
-
-// Save liked items to localStorage
-function setLikedItems(items) {
-  localStorage.setItem('likedNews', JSON.stringify(items));
-}
+import { likesService } from '../services/likes';
 
 // Source logo colors for fallback avatars
 const SOURCE_COLORS = {
@@ -215,11 +202,11 @@ function PostDetail() {
   const { user } = useAuth();
   const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
   const [imgError, setImgError] = useState(false);
-  const [likedItems, setLikedItemsState] = useState(getLikedItems);
   const [replyText, setReplyText] = useState('');
   const [postComments, setPostComments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [replyingToId, setReplyingToId] = useState(null); // comment id for nested replies
+  const [likesData, setLikesData] = useState({ count: 0, userIds: [] });
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
@@ -230,6 +217,17 @@ function PostDetail() {
 
     const unsubscribe = commentsService.subscribeToComments(postId, (comments) => {
       setPostComments(comments);
+    });
+
+    return () => unsubscribe();
+  }, [postId]);
+
+  // Subscribe to likes from Firestore
+  useEffect(() => {
+    if (!postId) return;
+
+    const unsubscribe = likesService.subscribeToLikes(postId, (data) => {
+      setLikesData(data);
     });
 
     return () => unsubscribe();
@@ -266,18 +264,27 @@ function PostDetail() {
   }
 
   const logoUrl = getSourceLogo(post.link);
-  const isLiked = likedItems[post.id];
+  const isLiked = user ? likesData.userIds.includes(user.uid) : false;
+  const likeCount = likesData.count;
   const isBookmarked = isInWatchlist(post.id);
 
-  const handleLike = () => {
-    const newLikedItems = { ...likedItems };
-    if (newLikedItems[post.id]) {
-      delete newLikedItems[post.id];
-    } else {
-      newLikedItems[post.id] = true;
+  // Count all comments including nested
+  const countAllComments = (commentList) => {
+    let count = commentList.length;
+    commentList.forEach(c => {
+      if (c.replies) count += countAllComments(c.replies);
+    });
+    return count;
+  };
+  const replyCount = countAllComments(postComments);
+
+  const handleLike = async () => {
+    if (!user) return;
+    try {
+      await likesService.toggleLike(post.id, user.uid);
+    } catch (err) {
+      console.error('Failed to toggle like:', err);
     }
-    setLikedItemsState(newLikedItems);
-    setLikedItems(newLikedItems);
   };
 
   const handleShare = async () => {
@@ -452,13 +459,19 @@ function PostDetail() {
 
           {/* Action buttons */}
           <div className="flex items-center justify-around py-2 border-b border-intel-700">
+            {/* Replies */}
+            <div className="flex items-center gap-2 p-3 text-gray-500">
+              <MessageCircle className="w-5 h-5" />
+              <span className="text-sm">{replyCount} {replyCount === 1 ? 'Reply' : 'Replies'}</span>
+            </div>
+
             {/* Like */}
             <button
               onClick={handleLike}
               className={`flex items-center gap-2 p-3 rounded-full transition-colors ${isLiked ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400 hover:bg-pink-400/10'}`}
             >
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-              <span className="text-sm">{isLiked ? 'Liked' : 'Like'}</span>
+              <span className="text-sm">{likeCount > 0 ? likeCount : ''} {isLiked ? 'Liked' : 'Like'}</span>
             </button>
 
             {/* Share */}
