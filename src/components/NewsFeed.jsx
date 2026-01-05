@@ -89,12 +89,13 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNaviga
 
   const handleShare = async (e) => {
     e.stopPropagation();
+    const postUrl = `${window.location.origin}/post/${item.id}`;
     if (navigator.share) {
       try {
         await navigator.share({
           title: item.title,
           text: item.summary || item.title,
-          url: item.link
+          url: postUrl
         });
       } catch (err) {
         if (err.name !== 'AbortError') {
@@ -104,7 +105,7 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNaviga
     } else {
       // Fallback: copy link to clipboard
       try {
-        await navigator.clipboard.writeText(item.link);
+        await navigator.clipboard.writeText(postUrl);
       } catch (err) {
         console.error('Failed to copy:', err);
       }

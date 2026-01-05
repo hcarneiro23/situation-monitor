@@ -146,12 +146,13 @@ function PostDetail() {
   };
 
   const handleShare = async () => {
+    const postUrl = `${window.location.origin}/post/${post.id}`;
     if (navigator.share) {
       try {
         await navigator.share({
           title: post.title,
           text: post.summary || post.title,
-          url: post.link
+          url: postUrl
         });
       } catch (err) {
         if (err.name !== 'AbortError') {
@@ -160,7 +161,7 @@ function PostDetail() {
       }
     } else {
       try {
-        await navigator.clipboard.writeText(post.link);
+        await navigator.clipboard.writeText(postUrl);
       } catch (err) {
         console.error('Failed to copy:', err);
       }
