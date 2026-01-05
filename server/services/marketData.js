@@ -6,7 +6,11 @@ const cache = new NodeCache({ stdTTL: 60 }); // 1 minute cache
 // We'll use free public APIs for market data
 // Yahoo Finance (via query endpoints), exchangerate.host, etc.
 
-const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
+// Try multiple Yahoo Finance endpoints
+const YAHOO_ENDPOINTS = [
+  'https://query2.finance.yahoo.com/v8/finance/chart',
+  'https://query1.finance.yahoo.com/v8/finance/chart'
+];
 
 // Key market symbols to track
 const SYMBOLS = {
@@ -92,48 +96,61 @@ const ASSET_DRIVERS = {
 };
 
 async function fetchYahooQuote(symbol) {
-  try {
-    const response = await axios.get(`${YAHOO_BASE}/${symbol}`, {
-      params: {
-        interval: '1d',
-        range: '5d'
-      },
-      headers: {
-        'User-Agent': 'Mozilla/5.0'
-      },
-      timeout: 5000
-    });
+  // Try each endpoint until one works
+  for (const baseUrl of YAHOO_ENDPOINTS) {
+    try {
+      const response = await axios.get(`${baseUrl}/${symbol}`, {
+        params: {
+          interval: '1d',
+          range: '5d',
+          includePrePost: false,
+          events: 'div,split'
+        },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json,text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        },
+        timeout: 8000
+      });
 
-    const result = response.data.chart.result[0];
-    const meta = result.meta;
-    const quotes = result.indicators.quote[0];
+      const result = response.data.chart.result[0];
+      const meta = result.meta;
+      const quotes = result.indicators.quote[0];
 
-    const currentPrice = meta.regularMarketPrice;
-    const previousClose = meta.previousClose || meta.chartPreviousClose;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
+      const currentPrice = meta.regularMarketPrice;
+      const previousClose = meta.previousClose || meta.chartPreviousClose;
+      const change = currentPrice - previousClose;
+      const changePercent = (change / previousClose) * 100;
 
-    // Get recent history for trend
-    const closes = quotes.close.filter(c => c !== null);
-    const highs = quotes.high.filter(h => h !== null);
-    const lows = quotes.low.filter(l => l !== null);
+      // Get recent history for trend
+      const closes = quotes.close.filter(c => c !== null);
+      const highs = quotes.high.filter(h => h !== null);
+      const lows = quotes.low.filter(l => l !== null);
 
-    return {
-      price: currentPrice,
-      previousClose,
-      change,
-      changePercent,
-      dayHigh: Math.max(...highs),
-      dayLow: Math.min(...lows),
-      volume: meta.regularMarketVolume,
-      marketState: meta.marketState,
-      timestamp: new Date(meta.regularMarketTime * 1000).toISOString(),
-      history: closes.slice(-5)
-    };
-  } catch (error) {
-    console.error(`[MarketData] Failed to fetch ${symbol}:`, error.message);
-    return null;
+      return {
+        price: currentPrice,
+        previousClose,
+        change,
+        changePercent,
+        dayHigh: Math.max(...highs),
+        dayLow: Math.min(...lows),
+        volume: meta.regularMarketVolume,
+        marketState: meta.marketState,
+        timestamp: new Date(meta.regularMarketTime * 1000).toISOString(),
+        history: closes.slice(-5)
+      };
+    } catch (error) {
+      // Try next endpoint
+      continue;
+    }
   }
+
+  console.error(`[MarketData] Failed to fetch ${symbol} from all endpoints`);
+  return null;
 }
 
 function determineTrend(history) {
