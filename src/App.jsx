@@ -3,7 +3,6 @@ import { useStore } from './store/useStore';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import NewsFeed from './components/NewsFeed';
-import ScenarioWorkspace from './components/ScenarioWorkspace';
 import TrendingTopics from './components/TrendingTopics';
 import Watchlist from './components/Watchlist';
 import AlertPanel from './components/AlertPanel';
@@ -179,12 +178,7 @@ function App() {
             </div>
           </section>
 
-          {/* Section 2: Scenarios */}
-          <section id="scenarios">
-            <ScenarioWorkspace />
-          </section>
-
-          {/* Section 3: Personal Watchlist */}
+          {/* Section 2: Personal Watchlist */}
           <section id="watchlist">
             <Watchlist />
           </section>

@@ -12,7 +12,8 @@
       "WebFetch(domain:situation-monitor-production.up.railway.app)",
       "Bash(timeout:*)",
       "Bash(npm run build:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(cat:*)"
     ]
   }
 }

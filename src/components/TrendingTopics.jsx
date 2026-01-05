@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { TrendingUp, Hash, Flame } from 'lucide-react';
+import { TrendingUp, Hash, Flame, Plus, Check } from 'lucide-react';
 
 // Common stop words to filter out
 const STOP_WORDS = new Set([
@@ -31,7 +31,28 @@ const STOP_WORDS = new Set([
 ]);
 
 function TrendingTopics() {
-  const { news } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
+
+  const toggleTopicWatchlist = (topic) => {
+    const topicId = `topic-${topic.text.toLowerCase().replace(/\s+/g, '-')}`;
+    if (isInWatchlist(topicId)) {
+      removeFromWatchlist(topicId);
+    } else {
+      addToWatchlist({
+        id: topicId,
+        type: 'topic',
+        name: topic.text,
+        count: topic.count,
+        news: topic.news,
+        createdAt: new Date().toISOString()
+      });
+    }
+  };
+
+  const isTopicWatched = (topic) => {
+    const topicId = `topic-${topic.text.toLowerCase().replace(/\s+/g, '-')}`;
+    return isInWatchlist(topicId);
+  };
 
   const trendingData = useMemo(() => {
     if (!news || news.length === 0) return { topics: [], phrases: [] };
@@ -172,27 +193,37 @@ function TrendingTopics() {
                   <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Trending Phrases</span>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {trendingData.phrases.map(item => (
-                    <div
-                      key={item.text}
-                      className={`group relative px-4 py-2 rounded-lg border text-sm font-medium transition-all hover:scale-105 cursor-default ${getIntensityStyle(item.intensity)}`}
-                    >
-                      <span>{item.text}</span>
-                      <span className="ml-2 opacity-60 text-xs">{item.count}</span>
+                  {trendingData.phrases.map(item => {
+                    const watched = isTopicWatched(item);
+                    return (
+                      <div
+                        key={item.text}
+                        className={`group relative flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all hover:scale-105 cursor-default ${getIntensityStyle(item.intensity)}`}
+                      >
+                        <span>{item.text}</span>
+                        <span className="opacity-60 text-xs">{item.count}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleTopicWatchlist(item); }}
+                          className={`ml-1 p-0.5 rounded transition-colors ${watched ? 'text-green-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white'}`}
+                          title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+                        >
+                          {watched ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        </button>
 
-                      {/* Tooltip */}
-                      {item.news.length > 0 && (
-                        <div className="absolute bottom-full left-0 mb-2 w-72 p-3 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                          <div className="text-xs text-gray-400 mb-2 font-medium">Related headlines:</div>
-                          {item.news.map(n => (
-                            <div key={n.id} className="text-xs text-gray-300 line-clamp-2 mb-1.5 last:mb-0">
-                              {n.title}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        {/* Tooltip */}
+                        {item.news.length > 0 && (
+                          <div className="absolute bottom-full left-0 mb-2 w-72 p-3 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                            <div className="text-xs text-gray-400 mb-2 font-medium">Related headlines:</div>
+                            {item.news.map(n => (
+                              <div key={n.id} className="text-xs text-gray-300 line-clamp-2 mb-1.5 last:mb-0">
+                                {n.title}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -204,27 +235,37 @@ function TrendingTopics() {
                 <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Most Mentioned</span>
               </div>
               <div className="flex flex-wrap gap-2.5">
-                {trendingData.topics.slice(0, 15).map(item => (
-                  <div
-                    key={item.text}
-                    className={`group relative px-3 py-1.5 rounded-md border text-sm transition-all hover:scale-105 cursor-default ${getIntensityStyle(item.intensity)}`}
-                  >
-                    <span>{item.text}</span>
-                    <span className="ml-2 opacity-50 text-xs">{item.count}</span>
+                {trendingData.topics.slice(0, 15).map(item => {
+                  const watched = isTopicWatched(item);
+                  return (
+                    <div
+                      key={item.text}
+                      className={`group relative flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm transition-all hover:scale-105 cursor-default ${getIntensityStyle(item.intensity)}`}
+                    >
+                      <span>{item.text}</span>
+                      <span className="opacity-50 text-xs">{item.count}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleTopicWatchlist(item); }}
+                        className={`p-0.5 rounded transition-colors ${watched ? 'text-green-400' : 'opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white'}`}
+                        title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+                      >
+                        {watched ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                      </button>
 
-                    {/* Tooltip */}
-                    {item.news.length > 0 && (
-                      <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                        <div className="text-xs text-gray-400 mb-2 font-medium">Related headlines:</div>
-                        {item.news.map(n => (
-                          <div key={n.id} className="text-xs text-gray-300 line-clamp-1 mb-1.5 last:mb-0">
-                            {n.title}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {/* Tooltip */}
+                      {item.news.length > 0 && (
+                        <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-intel-900 border border-intel-600 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                          <div className="text-xs text-gray-400 mb-2 font-medium">Related headlines:</div>
+                          {item.news.map(n => (
+                            <div key={n.id} className="text-xs text-gray-300 line-clamp-1 mb-1.5 last:mb-0">
+                              {n.title}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
