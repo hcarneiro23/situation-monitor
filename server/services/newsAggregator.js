@@ -133,20 +133,38 @@ const TRANSMISSION_CHANNELS = {
 };
 
 // Normalize date to ISO format with robust parsing
+// Returns null for missing/invalid dates (these items will be filtered out)
 function normalizeDate(dateInput) {
-  if (!dateInput) return new Date().toISOString();
+  if (!dateInput) return null;
 
   try {
     const date = new Date(dateInput);
     // Check if date is valid
     if (isNaN(date.getTime())) {
       console.warn('[NewsAggregator] Invalid date:', dateInput);
-      return new Date().toISOString();
+      return null;
     }
+
+    // Reject dates in the future (likely parsing errors)
+    const now = new Date();
+    if (date > now) {
+      // Allow up to 1 hour in future (timezone issues)
+      if (date.getTime() - now.getTime() > 3600000) {
+        console.warn('[NewsAggregator] Future date rejected:', dateInput);
+        return null;
+      }
+    }
+
+    // Reject dates older than 7 days (stale content)
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (date < sevenDaysAgo) {
+      return null; // Silently filter old content
+    }
+
     return date.toISOString();
   } catch (e) {
     console.warn('[NewsAggregator] Date parse error:', dateInput, e.message);
-    return new Date().toISOString();
+    return null;
   }
 }
 
@@ -334,10 +352,17 @@ export const newsAggregator = {
     const seenTitles = new Set();
 
     for (const item of allItems) {
+      // Skip items without title
+      if (!item.title) continue;
+
       // Deduplicate
       const titleKey = item.title.toLowerCase().slice(0, 50);
       if (seenTitles.has(titleKey)) continue;
       seenTitles.add(titleKey);
+
+      // Validate and normalize date - skip items with invalid/missing dates
+      const pubDate = normalizeDate(item.pubDate || item.isoDate);
+      if (!pubDate) continue; // Skip items without valid recent dates
 
       const text = `${item.title} ${item.contentSnippet || ''}`;
       const relevanceScore = scoreMarketRelevance(item.title, item.contentSnippet || '');
@@ -349,13 +374,13 @@ export const newsAggregator = {
       const exposedMarkets = getExposedMarkets(regions);
 
       processedItems.push({
-        id: Buffer.from(item.title + item.pubDate).toString('base64').slice(0, 16),
+        id: Buffer.from(item.title + pubDate).toString('base64').slice(0, 16),
         title: item.title,
         summary: item.contentSnippet || '',
         source: item.feedSource,
         category: item.feedCategory,
         link: item.link,
-        pubDate: normalizeDate(item.pubDate || item.isoDate),
+        pubDate,
         relevanceScore,
         signalStrength: determineSignalStrength(item),
         regions,
