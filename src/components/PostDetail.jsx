@@ -89,9 +89,10 @@ function formatFullDate(dateStr) {
 }
 
 // Recursive comment component
-function CommentItem({ comment, user, onReply, onDelete, formatDate, depth = 0 }) {
+function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingToId, onStartReply, onCancelReply, onSubmitReply, replyText, setReplyText, submitting }) {
   const maxDepth = 3; // Limit nesting depth
   const isNested = depth > 0;
+  const isReplying = replyingToId === comment.id;
 
   return (
     <div className={`${isNested ? 'ml-8 border-l border-intel-700 pl-4' : ''}`}>
@@ -117,7 +118,7 @@ function CommentItem({ comment, user, onReply, onDelete, formatDate, depth = 0 }
             <div className="flex items-center gap-4 mt-2">
               {depth < maxDepth && (
                 <button
-                  onClick={() => onReply(comment)}
+                  onClick={() => onStartReply(comment)}
                   className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors text-sm"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -134,6 +135,53 @@ function CommentItem({ comment, user, onReply, onDelete, formatDate, depth = 0 }
                 </button>
               )}
             </div>
+
+            {/* Inline reply box */}
+            {isReplying && (
+              <div className="mt-3 pt-3 border-t border-intel-700">
+                <div className="flex items-center gap-2 mb-2 text-sm">
+                  <span className="text-gray-500">Replying to</span>
+                  <span className="text-blue-400">@{comment.author}</span>
+                </div>
+                <form onSubmit={(e) => onSubmitReply(e, comment.id)} className="flex gap-3">
+                  <div className="flex-shrink-0">
+                    {user?.photoURL ? (
+                      <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-intel-700 flex items-center justify-center">
+                        <User className="w-4 h-4 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder={`Reply to @${comment.author}...`}
+                      className="w-full bg-intel-800 text-white placeholder-gray-500 text-sm resize-none outline-none rounded-lg p-2 min-h-[60px]"
+                      rows={2}
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={onCancelReply}
+                        className="px-3 py-1 text-gray-400 hover:text-white text-sm transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!replyText.trim() || submitting}
+                        className="px-3 py-1 bg-blue-500 text-white font-medium text-sm rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submitting ? 'Posting...' : 'Reply'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -146,10 +194,16 @@ function CommentItem({ comment, user, onReply, onDelete, formatDate, depth = 0 }
               key={reply.id}
               comment={reply}
               user={user}
-              onReply={onReply}
               onDelete={onDelete}
               formatDate={formatDate}
               depth={depth + 1}
+              replyingToId={replyingToId}
+              onStartReply={onStartReply}
+              onCancelReply={onCancelReply}
+              onSubmitReply={onSubmitReply}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              submitting={submitting}
             />
           ))}
         </div>
@@ -168,7 +222,7 @@ function PostDetail() {
   const [replyText, setReplyText] = useState('');
   const [postComments, setPostComments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState(null); // { id, author } for nested replies
+  const [replyingToId, setReplyingToId] = useState(null); // comment id for nested replies
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
@@ -265,7 +319,7 @@ function PostDetail() {
     }
   };
 
-  const handleSubmitReply = async (e) => {
+  const handleSubmitReply = async (e, parentId = null) => {
     e.preventDefault();
     if (!replyText.trim() || submitting) return;
 
@@ -275,10 +329,10 @@ function PostDetail() {
         text: replyText.trim(),
         author: user?.displayName || user?.email || 'Anonymous',
         authorId: user?.uid || null,
-        parentId: replyingTo?.id || null
+        parentId
       });
       setReplyText('');
-      setReplyingTo(null);
+      setReplyingToId(null);
     } catch (err) {
       console.error('Failed to add comment:', err);
     } finally {
@@ -286,12 +340,13 @@ function PostDetail() {
     }
   };
 
-  const handleReplyToComment = (comment) => {
-    setReplyingTo({ id: comment.id, author: comment.author });
+  const handleStartReply = (comment) => {
+    setReplyingToId(comment.id);
+    setReplyText('');
   };
 
   const cancelReply = () => {
-    setReplyingTo(null);
+    setReplyingToId(null);
     setReplyText('');
   };
 
@@ -419,53 +474,43 @@ function PostDetail() {
             </button>
           </div>
 
-          {/* Reply input section */}
-          <div className="py-3 border-b border-intel-700">
-            {replyingTo && (
-              <div className="flex items-center gap-2 mb-2 text-sm">
-                <span className="text-gray-500">Replying to</span>
-                <span className="text-blue-400">@{replyingTo.author}</span>
-                <button
-                  onClick={cancelReply}
-                  className="ml-auto text-gray-500 hover:text-white text-xs"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            <form onSubmit={handleSubmitReply} className="flex gap-3">
-              {/* User avatar */}
-              <div className="flex-shrink-0">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
-                    <User className="w-5 h-5 text-gray-400" />
-                  </div>
-                )}
-              </div>
-
-              {/* Reply input */}
-              <div className="flex-1">
-                <textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder={replyingTo ? `Reply to @${replyingTo.author}...` : "Post your reply"}
-                  className="w-full bg-transparent text-white placeholder-gray-500 text-[15px] resize-none outline-none min-h-[60px]"
-                  rows={2}
-                />
-                <div className="flex justify-end mt-2">
-                  <button
-                    type="submit"
-                    disabled={!replyText.trim() || submitting}
-                    className="px-4 py-1.5 bg-blue-500 text-white font-bold text-sm rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submitting ? 'Posting...' : 'Reply'}
-                  </button>
+          {/* Top-level reply input section */}
+          {!replyingToId && (
+            <div className="py-3 border-b border-intel-700">
+              <form onSubmit={(e) => handleSubmitReply(e, null)} className="flex gap-3">
+                {/* User avatar */}
+                <div className="flex-shrink-0">
+                  {user?.photoURL ? (
+                    <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
+                      <User className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
                 </div>
-              </div>
-            </form>
-          </div>
+
+                {/* Reply input */}
+                <div className="flex-1">
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Post your reply"
+                    className="w-full bg-transparent text-white placeholder-gray-500 text-[15px] resize-none outline-none min-h-[60px]"
+                    rows={2}
+                  />
+                  <div className="flex justify-end mt-2">
+                    <button
+                      type="submit"
+                      disabled={!replyText.trim() || submitting}
+                      className="px-4 py-1.5 bg-blue-500 text-white font-bold text-sm rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? 'Posting...' : 'Reply'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* Comments section */}
           <div>
@@ -480,10 +525,16 @@ function PostDetail() {
                   key={comment.id}
                   comment={comment}
                   user={user}
-                  onReply={handleReplyToComment}
                   onDelete={handleDeleteComment}
                   formatDate={formatDate}
                   depth={0}
+                  replyingToId={replyingToId}
+                  onStartReply={handleStartReply}
+                  onCancelReply={cancelReply}
+                  onSubmitReply={handleSubmitReply}
+                  replyText={replyText}
+                  setReplyText={setReplyText}
+                  submitting={submitting}
                 />
               ))
             )}
