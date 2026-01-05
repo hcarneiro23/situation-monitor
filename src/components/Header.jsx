@@ -1,11 +1,21 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
-import { Activity, Wifi, WifiOff, Clock, Bell, Settings } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Activity, Wifi, WifiOff, Clock, Bell, Settings, LogOut, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 function Header() {
   const { isConnected, lastUpdate, alerts, news, signals } = useStore();
+  const { user, signOut } = useAuth();
   const unreadAlerts = alerts.filter(a => !a.read).length;
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-intel-700">
@@ -85,6 +95,35 @@ function Header() {
             >
               <Settings className="w-5 h-5 text-gray-400" />
             </button>
+
+            {/* User menu */}
+            {user && (
+              <div className="flex items-center gap-2 pl-2 border-l border-intel-600">
+                <div className="hidden sm:flex items-center gap-2">
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt=""
+                      className="w-6 h-6 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-intel-600 flex items-center justify-center">
+                      <User className="w-3 h-3 text-gray-400" />
+                    </div>
+                  )}
+                  <span className="text-xs text-gray-400 max-w-[100px] truncate">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </span>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="p-2 rounded-lg hover:bg-intel-700 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

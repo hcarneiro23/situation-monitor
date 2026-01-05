@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useStore } from './store/useStore';
+import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import WhatMattersNow from './components/WhatMattersNow';
 import NewsFeed from './components/NewsFeed';
@@ -142,67 +143,69 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-intel-900 text-gray-100">
-      {/* Header with connection status */}
-      <Header />
+    <ProtectedRoute>
+      <div className="min-h-screen bg-intel-900 text-gray-100">
+        {/* Header with connection status */}
+        <Header />
 
-      {/* Main content - single continuous surface */}
-      <main className="max-w-[1920px] mx-auto px-4 py-6 space-y-6">
-        {/* Alert Panel - slides in when there are alerts */}
-        <AlertPanel />
+        {/* Main content - single continuous surface */}
+        <main className="max-w-[1920px] mx-auto px-4 py-6 space-y-6">
+          {/* Alert Panel - slides in when there are alerts */}
+          <AlertPanel />
 
-        {/* Section 1: What Matters Now */}
-        <section id="what-matters-now">
-          <WhatMattersNow />
-        </section>
+          {/* Section 1: What Matters Now */}
+          <section id="what-matters-now">
+            <WhatMattersNow />
+          </section>
 
-        {/* Section 2 & 3: News Feed and Signals side by side */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <NewsFeed />
+          {/* Section 2 & 3: News Feed and Signals side by side */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <NewsFeed />
+            </div>
+            <div className="lg:col-span-1">
+              <SignalPanel />
+            </div>
+          </section>
+
+          {/* Section 4: Political → Market Overlay */}
+          <section id="political-market">
+            <PoliticalMarketOverlay />
+          </section>
+
+          {/* Section 5: Market Context Panels */}
+          <section id="markets">
+            <MarketPanels />
+          </section>
+
+          {/* Section 6 & 7: Scenarios and Timeline side by side */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div id="scenarios">
+              <ScenarioWorkspace />
+            </div>
+            <div id="timeline">
+              <CatalystTimeline />
+            </div>
+          </section>
+
+          {/* Section 8: Personal Watchlist */}
+          <section id="watchlist">
+            <Watchlist />
+          </section>
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-intel-700 py-4 mt-8">
+          <div className="max-w-[1920px] mx-auto px-4 text-center text-sm text-gray-500">
+            <p>Situation Monitor - Intelligence Console</p>
+            <p className="text-xs mt-1">
+              Data sources: Reuters, BBC, Bloomberg, Al Jazeera, Financial Times, MarketWatch, and others.
+              Market data via public APIs. Not financial advice.
+            </p>
           </div>
-          <div className="lg:col-span-1">
-            <SignalPanel />
-          </div>
-        </section>
-
-        {/* Section 4: Political → Market Overlay */}
-        <section id="political-market">
-          <PoliticalMarketOverlay />
-        </section>
-
-        {/* Section 5: Market Context Panels */}
-        <section id="markets">
-          <MarketPanels />
-        </section>
-
-        {/* Section 6 & 7: Scenarios and Timeline side by side */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div id="scenarios">
-            <ScenarioWorkspace />
-          </div>
-          <div id="timeline">
-            <CatalystTimeline />
-          </div>
-        </section>
-
-        {/* Section 8: Personal Watchlist */}
-        <section id="watchlist">
-          <Watchlist />
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-intel-700 py-4 mt-8">
-        <div className="max-w-[1920px] mx-auto px-4 text-center text-sm text-gray-500">
-          <p>Situation Monitor - Intelligence Console</p>
-          <p className="text-xs mt-1">
-            Data sources: Reuters, BBC, Bloomberg, Al Jazeera, Financial Times, MarketWatch, and others.
-            Market data via public APIs. Not financial advice.
-          </p>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </ProtectedRoute>
   );
 }
 
