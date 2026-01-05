@@ -11,70 +11,283 @@ const parser = new Parser({
 
 const cache = new NodeCache({ stdTTL: 300 }); // 5 minute cache
 
+// Scope levels for news
+const SCOPE_INTERNATIONAL = 'international';
+const SCOPE_REGIONAL = 'regional';
+const SCOPE_LOCAL = 'local';
+
 // Real RSS feeds for geopolitical and financial news
 const RSS_SOURCES = [
+  // ============================================
+  // INTERNATIONAL NEWS (Global Coverage)
+  // ============================================
+
   // Major Wire Services
-  { url: 'https://feeds.reuters.com/reuters/worldNews', source: 'Reuters', category: 'world' },
-  { url: 'https://feeds.reuters.com/reuters/businessNews', source: 'Reuters', category: 'business' },
-  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', source: 'BBC', category: 'world' },
-  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', source: 'BBC', category: 'business' },
-  { url: 'https://rss.app/feeds/v1.1/apnews.com.xml', source: 'AP News', category: 'world' },
+  { url: 'https://feeds.reuters.com/reuters/worldNews', source: 'Reuters', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://feeds.reuters.com/reuters/businessNews', source: 'Reuters', category: 'business', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', source: 'BBC', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', source: 'BBC', category: 'business', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://rss.app/feeds/v1.1/apnews.com.xml', source: 'AP News', category: 'world', scope: SCOPE_INTERNATIONAL },
 
   // Financial & Economic
-  { url: 'https://feeds.bloomberg.com/markets/news.rss', source: 'Bloomberg', category: 'markets' },
-  { url: 'https://www.ft.com/rss/home', source: 'Financial Times', category: 'business' },
-  { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', source: 'MarketWatch', category: 'markets' },
-  { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', source: 'CNBC', category: 'markets' },
-  { url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html', source: 'CNBC', category: 'economy' },
-  { url: 'https://finance.yahoo.com/news/rssindex', source: 'Yahoo Finance', category: 'markets' },
-  { url: 'https://www.economist.com/finance-and-economics/rss.xml', source: 'Economist', category: 'economy' },
-  { url: 'https://www.economist.com/international/rss.xml', source: 'Economist', category: 'world' },
-  { url: 'https://feeds.wsj.com/xml/rss/3_7085.xml', source: 'WSJ', category: 'world' },
-  { url: 'https://feeds.wsj.com/xml/rss/3_7014.xml', source: 'WSJ', category: 'markets' },
+  { url: 'https://feeds.bloomberg.com/markets/news.rss', source: 'Bloomberg', category: 'markets', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.ft.com/rss/home', source: 'Financial Times', category: 'business', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', source: 'MarketWatch', category: 'markets', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', source: 'CNBC', category: 'markets', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html', source: 'CNBC', category: 'economy', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://finance.yahoo.com/news/rssindex', source: 'Yahoo Finance', category: 'markets', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.economist.com/finance-and-economics/rss.xml', source: 'Economist', category: 'economy', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.economist.com/international/rss.xml', source: 'Economist', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://feeds.wsj.com/xml/rss/3_7085.xml', source: 'WSJ', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://feeds.wsj.com/xml/rss/3_7014.xml', source: 'WSJ', category: 'markets', scope: SCOPE_INTERNATIONAL },
 
   // Geopolitical Focus
-  { url: 'https://www.aljazeera.com/xml/rss/all.xml', source: 'Al Jazeera', category: 'world' },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', source: 'NYT', category: 'world' },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', source: 'NYT', category: 'politics' },
-  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', source: 'NYT', category: 'business' },
-  { url: 'https://www.theguardian.com/world/rss', source: 'Guardian', category: 'world' },
-  { url: 'https://www.politico.com/rss/politicopicks.xml', source: 'Politico', category: 'politics' },
-  { url: 'https://www.politico.eu/feed/', source: 'Politico EU', category: 'europe' },
+  { url: 'https://www.aljazeera.com/xml/rss/all.xml', source: 'Al Jazeera', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', source: 'NYT', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', source: 'NYT', category: 'politics', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', source: 'NYT', category: 'business', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.theguardian.com/world/rss', source: 'Guardian', category: 'world', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.politico.com/rss/politicopicks.xml', source: 'Politico', category: 'politics', scope: SCOPE_INTERNATIONAL },
 
   // Policy & Think Tanks
-  { url: 'https://www.brookings.edu/feed/', source: 'Brookings', category: 'policy' },
-  { url: 'https://foreignpolicy.com/feed/', source: 'Foreign Policy', category: 'geopolitics' },
-  { url: 'https://www.cfr.org/rss.xml', source: 'CFR', category: 'geopolitics' },
-  { url: 'https://www.csis.org/feeds/all', source: 'CSIS', category: 'security' },
-  { url: 'https://warontherocks.com/feed/', source: 'War on the Rocks', category: 'security' },
-  { url: 'https://carnegieendowment.org/rss/solr/?fa=experts', source: 'Carnegie', category: 'policy' },
-  { url: 'https://www.atlanticcouncil.org/feed/', source: 'Atlantic Council', category: 'geopolitics' },
-
-  // Regional - Asia
-  { url: 'https://www.scmp.com/rss/91/feed', source: 'SCMP', category: 'asia' },
-  { url: 'https://asia.nikkei.com/rss/feed/nar', source: 'Nikkei Asia', category: 'asia' },
-  { url: 'https://www.japantimes.co.jp/feed/', source: 'Japan Times', category: 'asia' },
-  { url: 'https://www.straitstimes.com/news/world/rss.xml', source: 'Straits Times', category: 'asia' },
-
-  // Regional - Europe & Middle East
-  { url: 'https://www.dw.com/en/top-stories/rss-12229', source: 'DW', category: 'europe' },
-  { url: 'https://www.france24.com/en/rss', source: 'France24', category: 'europe' },
-  { url: 'https://www.middleeasteye.net/rss', source: 'Middle East Eye', category: 'middle_east' },
-  { url: 'https://www.timesofisrael.com/feed/', source: 'Times of Israel', category: 'middle_east' },
+  { url: 'https://www.brookings.edu/feed/', source: 'Brookings', category: 'policy', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://foreignpolicy.com/feed/', source: 'Foreign Policy', category: 'geopolitics', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.cfr.org/rss.xml', source: 'CFR', category: 'geopolitics', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.csis.org/feeds/all', source: 'CSIS', category: 'security', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://warontherocks.com/feed/', source: 'War on the Rocks', category: 'security', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://carnegieendowment.org/rss/solr/?fa=experts', source: 'Carnegie', category: 'policy', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.atlanticcouncil.org/feed/', source: 'Atlantic Council', category: 'geopolitics', scope: SCOPE_INTERNATIONAL },
 
   // Commodities & Energy
-  { url: 'https://oilprice.com/rss/main', source: 'OilPrice', category: 'commodities' },
-  { url: 'https://www.spglobal.com/commodityinsights/en/rss-feed/commodities', source: 'S&P Global', category: 'commodities' },
-  { url: 'https://www.mining.com/feed/', source: 'Mining.com', category: 'commodities' },
+  { url: 'https://oilprice.com/rss/main', source: 'OilPrice', category: 'commodities', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.spglobal.com/commodityinsights/en/rss-feed/commodities', source: 'S&P Global', category: 'commodities', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.mining.com/feed/', source: 'Mining.com', category: 'commodities', scope: SCOPE_INTERNATIONAL },
 
   // Defense & Security
-  { url: 'https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml', source: 'Defense News', category: 'defense' },
-  { url: 'https://breakingdefense.com/feed/', source: 'Breaking Defense', category: 'defense' },
-  { url: 'https://www.janes.com/feeds/news', source: 'Janes', category: 'defense' },
+  { url: 'https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml', source: 'Defense News', category: 'defense', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://breakingdefense.com/feed/', source: 'Breaking Defense', category: 'defense', scope: SCOPE_INTERNATIONAL },
+  { url: 'https://www.janes.com/feeds/news', source: 'Janes', category: 'defense', scope: SCOPE_INTERNATIONAL },
 
   // Central Banks & Monetary
-  { url: 'https://www.centralbanking.com/rss', source: 'Central Banking', category: 'monetary' },
+  { url: 'https://www.centralbanking.com/rss', source: 'Central Banking', category: 'monetary', scope: SCOPE_INTERNATIONAL },
+
+  // ============================================
+  // REGIONAL NEWS (Continent/Region Coverage)
+  // ============================================
+
+  // Europe
+  { url: 'https://www.politico.eu/feed/', source: 'Politico EU', category: 'europe', scope: SCOPE_REGIONAL, region: 'europe' },
+  { url: 'https://www.dw.com/en/top-stories/rss-12229', source: 'DW', category: 'europe', scope: SCOPE_REGIONAL, region: 'europe' },
+  { url: 'https://www.france24.com/en/rss', source: 'France24', category: 'europe', scope: SCOPE_REGIONAL, region: 'europe' },
+  { url: 'https://www.euronews.com/rss', source: 'Euronews', category: 'europe', scope: SCOPE_REGIONAL, region: 'europe' },
+  { url: 'https://www.thelocal.com/feed/', source: 'The Local EU', category: 'europe', scope: SCOPE_REGIONAL, region: 'europe' },
+
+  // Middle East
+  { url: 'https://www.middleeasteye.net/rss', source: 'Middle East Eye', category: 'middle_east', scope: SCOPE_REGIONAL, region: 'middle_east' },
+  { url: 'https://www.timesofisrael.com/feed/', source: 'Times of Israel', category: 'middle_east', scope: SCOPE_REGIONAL, region: 'middle_east' },
+  { url: 'https://english.alarabiya.net/tools/rss', source: 'Al Arabiya', category: 'middle_east', scope: SCOPE_REGIONAL, region: 'middle_east' },
+  { url: 'https://www.arabnews.com/rss.xml', source: 'Arab News', category: 'middle_east', scope: SCOPE_REGIONAL, region: 'middle_east' },
+  { url: 'https://gulfnews.com/rss', source: 'Gulf News', category: 'middle_east', scope: SCOPE_REGIONAL, region: 'middle_east' },
+
+  // Asia - East
+  { url: 'https://www.scmp.com/rss/91/feed', source: 'SCMP', category: 'asia', scope: SCOPE_REGIONAL, region: 'east_asia' },
+  { url: 'https://asia.nikkei.com/rss/feed/nar', source: 'Nikkei Asia', category: 'asia', scope: SCOPE_REGIONAL, region: 'east_asia' },
+  { url: 'https://www.japantimes.co.jp/feed/', source: 'Japan Times', category: 'asia', scope: SCOPE_REGIONAL, region: 'east_asia' },
+  { url: 'https://www.koreaherald.com/rss', source: 'Korea Herald', category: 'asia', scope: SCOPE_REGIONAL, region: 'east_asia' },
+  { url: 'https://www.taipeitimes.com/xml/index.rss', source: 'Taipei Times', category: 'asia', scope: SCOPE_REGIONAL, region: 'east_asia' },
+
+  // Asia - Southeast
+  { url: 'https://www.straitstimes.com/news/world/rss.xml', source: 'Straits Times', category: 'asia', scope: SCOPE_REGIONAL, region: 'southeast_asia' },
+  { url: 'https://www.bangkokpost.com/rss/data/topstories.xml', source: 'Bangkok Post', category: 'asia', scope: SCOPE_REGIONAL, region: 'southeast_asia' },
+  { url: 'https://www.channelnewsasia.com/rssfeeds/8395986', source: 'CNA', category: 'asia', scope: SCOPE_REGIONAL, region: 'southeast_asia' },
+  { url: 'https://e.vnexpress.net/rss/news.rss', source: 'VnExpress', category: 'asia', scope: SCOPE_REGIONAL, region: 'southeast_asia' },
+  { url: 'https://www.thejakartapost.com/feed', source: 'Jakarta Post', category: 'asia', scope: SCOPE_REGIONAL, region: 'southeast_asia' },
+
+  // Asia - South
+  { url: 'https://timesofindia.indiatimes.com/rssfeeds/296589292.cms', source: 'Times of India', category: 'asia', scope: SCOPE_REGIONAL, region: 'south_asia' },
+  { url: 'https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml', source: 'Hindustan Times', category: 'asia', scope: SCOPE_REGIONAL, region: 'south_asia' },
+  { url: 'https://www.dawn.com/feeds/home', source: 'Dawn', category: 'asia', scope: SCOPE_REGIONAL, region: 'south_asia' },
+  { url: 'https://bdnews24.com/feed/en/', source: 'bdnews24', category: 'asia', scope: SCOPE_REGIONAL, region: 'south_asia' },
+  { url: 'https://kathmandupost.com/rss', source: 'Kathmandu Post', category: 'asia', scope: SCOPE_REGIONAL, region: 'south_asia' },
+
+  // Africa
+  { url: 'https://mg.co.za/feed/', source: 'Mail & Guardian', category: 'africa', scope: SCOPE_REGIONAL, region: 'africa' },
+  { url: 'https://www.news24.com/topstories/rss', source: 'News24 SA', category: 'africa', scope: SCOPE_REGIONAL, region: 'africa' },
+  { url: 'https://www.dailymaverick.co.za/feed/', source: 'Daily Maverick', category: 'africa', scope: SCOPE_REGIONAL, region: 'africa' },
+  { url: 'https://www.theeastafrican.co.ke/tea/feed', source: 'East African', category: 'africa', scope: SCOPE_REGIONAL, region: 'africa' },
+  { url: 'https://guardian.ng/feed/', source: 'Guardian Nigeria', category: 'africa', scope: SCOPE_REGIONAL, region: 'africa' },
+  { url: 'https://www.africanews.com/feed/', source: 'Africanews', category: 'africa', scope: SCOPE_REGIONAL, region: 'africa' },
+
+  // Latin America
+  { url: 'https://www.batimes.com.ar/feed', source: 'Buenos Aires Times', category: 'latam', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://riotimesonline.com/feed/', source: 'Rio Times', category: 'latam', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://mexiconewsdaily.com/feed/', source: 'Mexico News Daily', category: 'latam', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.ticotimes.net/feed', source: 'Tico Times', category: 'latam', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://colombiareports.com/feed/', source: 'Colombia Reports', category: 'latam', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // Oceania
+  { url: 'https://www.abc.net.au/news/feed/51120/rss.xml', source: 'ABC Australia', category: 'oceania', scope: SCOPE_REGIONAL, region: 'oceania' },
+  { url: 'https://www.smh.com.au/rss/feed.xml', source: 'Sydney Morning Herald', category: 'oceania', scope: SCOPE_REGIONAL, region: 'oceania' },
+  { url: 'https://www.nzherald.co.nz/arc/outboundfeeds/rss/curated/78/', source: 'NZ Herald', category: 'oceania', scope: SCOPE_REGIONAL, region: 'oceania' },
+  { url: 'https://www.stuff.co.nz/rss', source: 'Stuff NZ', category: 'oceania', scope: SCOPE_REGIONAL, region: 'oceania' },
+
+  // North America (Regional)
+  { url: 'https://www.cbc.ca/webfeed/rss/rss-topstories', source: 'CBC', category: 'north_america', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://globalnews.ca/feed/', source: 'Global News CA', category: 'north_america', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // ============================================
+  // LOCAL NEWS (City/Metro Coverage)
+  // ============================================
+
+  // United States - Major Cities
+  { url: 'https://gothamist.com/feed', source: 'Gothamist', category: 'local', scope: SCOPE_LOCAL, cities: ['new york', 'nyc', 'manhattan', 'brooklyn'] },
+  { url: 'https://www.nydailynews.com/feed/', source: 'NY Daily News', category: 'local', scope: SCOPE_LOCAL, cities: ['new york', 'nyc', 'manhattan', 'brooklyn'] },
+  { url: 'https://www.amny.com/feed/', source: 'amNewYork', category: 'local', scope: SCOPE_LOCAL, cities: ['new york', 'nyc', 'manhattan', 'brooklyn'] },
+  { url: 'https://www.latimes.com/local/rss2.0.xml', source: 'LA Times Local', category: 'local', scope: SCOPE_LOCAL, cities: ['los angeles', 'la', 'hollywood', 'beverly hills'] },
+  { url: 'https://laist.com/feed', source: 'LAist', category: 'local', scope: SCOPE_LOCAL, cities: ['los angeles', 'la', 'hollywood', 'beverly hills'] },
+  { url: 'https://chicago.suntimes.com/rss/index.xml', source: 'Chicago Sun-Times', category: 'local', scope: SCOPE_LOCAL, cities: ['chicago'] },
+  { url: 'https://blockclubchicago.org/feed/', source: 'Block Club Chicago', category: 'local', scope: SCOPE_LOCAL, cities: ['chicago'] },
+  { url: 'https://www.houstonchronicle.com/rss/feed/Houston-News-702.php', source: 'Houston Chronicle', category: 'local', scope: SCOPE_LOCAL, cities: ['houston'] },
+  { url: 'https://www.dallasnews.com/feed/', source: 'Dallas Morning News', category: 'local', scope: SCOPE_LOCAL, cities: ['dallas', 'fort worth', 'dfw'] },
+  { url: 'https://www.miamiherald.com/latest-news/feed/', source: 'Miami Herald', category: 'local', scope: SCOPE_LOCAL, cities: ['miami'] },
+  { url: 'https://www.sfchronicle.com/feed/', source: 'SF Chronicle', category: 'local', scope: SCOPE_LOCAL, cities: ['san francisco', 'sf', 'bay area'] },
+  { url: 'https://sfist.com/feed/', source: 'SFist', category: 'local', scope: SCOPE_LOCAL, cities: ['san francisco', 'sf', 'bay area'] },
+  { url: 'https://www.seattletimes.com/feed/', source: 'Seattle Times', category: 'local', scope: SCOPE_LOCAL, cities: ['seattle'] },
+  { url: 'https://www.denverpost.com/feed/', source: 'Denver Post', category: 'local', scope: SCOPE_LOCAL, cities: ['denver'] },
+  { url: 'https://www.bostonglobe.com/rss/feed/', source: 'Boston Globe', category: 'local', scope: SCOPE_LOCAL, cities: ['boston'] },
+  { url: 'https://www.phillymag.com/feed/', source: 'Philadelphia Magazine', category: 'local', scope: SCOPE_LOCAL, cities: ['philadelphia', 'philly'] },
+  { url: 'https://dcist.com/feed/', source: 'DCist', category: 'local', scope: SCOPE_LOCAL, cities: ['washington dc', 'dc', 'washington'] },
+  { url: 'https://www.washingtonian.com/feed/', source: 'Washingtonian', category: 'local', scope: SCOPE_LOCAL, cities: ['washington dc', 'dc', 'washington'] },
+  { url: 'https://www.atlantamagazine.com/feed/', source: 'Atlanta Magazine', category: 'local', scope: SCOPE_LOCAL, cities: ['atlanta'] },
+  { url: 'https://www.bizjournals.com/atlanta/feed/headlines/Atlanta_Business_Chronicle', source: 'Atlanta Business Chronicle', category: 'local', scope: SCOPE_LOCAL, cities: ['atlanta'] },
+
+  // Europe - Major Cities
+  { url: 'https://www.timeout.com/london/rss', source: 'Time Out London', category: 'local', scope: SCOPE_LOCAL, cities: ['london'] },
+  { url: 'https://www.standard.co.uk/rss', source: 'Evening Standard', category: 'local', scope: SCOPE_LOCAL, cities: ['london'] },
+  { url: 'https://www.cityam.com/feed/', source: 'City A.M.', category: 'local', scope: SCOPE_LOCAL, cities: ['london'] },
+  { url: 'https://www.thelocal.fr/feed/', source: 'The Local France', category: 'local', scope: SCOPE_LOCAL, cities: ['paris'] },
+  { url: 'https://www.timeout.com/paris/en/rss', source: 'Time Out Paris', category: 'local', scope: SCOPE_LOCAL, cities: ['paris'] },
+  { url: 'https://www.thelocal.de/feed/', source: 'The Local Germany', category: 'local', scope: SCOPE_LOCAL, cities: ['berlin', 'munich', 'frankfurt', 'hamburg'] },
+  { url: 'https://www.exberliner.com/feed/', source: 'Exberliner', category: 'local', scope: SCOPE_LOCAL, cities: ['berlin'] },
+  { url: 'https://www.thelocal.es/feed/', source: 'The Local Spain', category: 'local', scope: SCOPE_LOCAL, cities: ['madrid', 'barcelona'] },
+  { url: 'https://www.thelocal.it/feed/', source: 'The Local Italy', category: 'local', scope: SCOPE_LOCAL, cities: ['rome', 'milan'] },
+  { url: 'https://www.thelocal.nl/feed/', source: 'The Local Netherlands', category: 'local', scope: SCOPE_LOCAL, cities: ['amsterdam', 'rotterdam', 'the hague'] },
+  { url: 'https://www.dutchnews.nl/feed/', source: 'Dutch News', category: 'local', scope: SCOPE_LOCAL, cities: ['amsterdam', 'rotterdam', 'the hague'] },
+  { url: 'https://www.thelocal.se/feed/', source: 'The Local Sweden', category: 'local', scope: SCOPE_LOCAL, cities: ['stockholm', 'gothenburg', 'malmo'] },
+  { url: 'https://www.thelocal.dk/feed/', source: 'The Local Denmark', category: 'local', scope: SCOPE_LOCAL, cities: ['copenhagen'] },
+  { url: 'https://www.irishtimes.com/cmlink/the-irish-times-news-1.1319192', source: 'Irish Times', category: 'local', scope: SCOPE_LOCAL, cities: ['dublin'] },
+  { url: 'https://www.swissinfo.ch/eng/rss', source: 'Swissinfo', category: 'local', scope: SCOPE_LOCAL, cities: ['zurich', 'geneva', 'bern'] },
+  { url: 'https://www.thelocal.at/feed/', source: 'The Local Austria', category: 'local', scope: SCOPE_LOCAL, cities: ['vienna'] },
+  { url: 'https://www.portugal-news.com/feed/', source: 'Portugal News', category: 'local', scope: SCOPE_LOCAL, cities: ['lisbon', 'porto'] },
+  { url: 'https://www.praguemorning.cz/feed/', source: 'Prague Morning', category: 'local', scope: SCOPE_LOCAL, cities: ['prague'] },
+  { url: 'https://budapestbeacon.com/feed/', source: 'Budapest Beacon', category: 'local', scope: SCOPE_LOCAL, cities: ['budapest'] },
+  { url: 'https://polandin.com/feed', source: 'Polandin', category: 'local', scope: SCOPE_LOCAL, cities: ['warsaw', 'krakow'] },
+
+  // Asia - Major Cities
+  { url: 'https://www.timeout.com/tokyo/rss', source: 'Time Out Tokyo', category: 'local', scope: SCOPE_LOCAL, cities: ['tokyo'] },
+  { url: 'https://www.timeout.com/hong-kong/rss', source: 'Time Out Hong Kong', category: 'local', scope: SCOPE_LOCAL, cities: ['hong kong'] },
+  { url: 'https://www.timeout.com/singapore/rss', source: 'Time Out Singapore', category: 'local', scope: SCOPE_LOCAL, cities: ['singapore'] },
+  { url: 'https://coconuts.co/bangkok/feed/', source: 'Coconuts Bangkok', category: 'local', scope: SCOPE_LOCAL, cities: ['bangkok'] },
+  { url: 'https://coconuts.co/singapore/feed/', source: 'Coconuts Singapore', category: 'local', scope: SCOPE_LOCAL, cities: ['singapore'] },
+  { url: 'https://coconuts.co/hongkong/feed/', source: 'Coconuts Hong Kong', category: 'local', scope: SCOPE_LOCAL, cities: ['hong kong'] },
+  { url: 'https://coconuts.co/jakarta/feed/', source: 'Coconuts Jakarta', category: 'local', scope: SCOPE_LOCAL, cities: ['jakarta'] },
+  { url: 'https://coconuts.co/manila/feed/', source: 'Coconuts Manila', category: 'local', scope: SCOPE_LOCAL, cities: ['manila'] },
+  { url: 'https://mumbaimirror.indiatimes.com/rssfeedstopstories.cms', source: 'Mumbai Mirror', category: 'local', scope: SCOPE_LOCAL, cities: ['mumbai', 'bombay'] },
+  { url: 'https://bangaloremirror.indiatimes.com/rssfeedstopstories.cms', source: 'Bangalore Mirror', category: 'local', scope: SCOPE_LOCAL, cities: ['bangalore', 'bengaluru'] },
+  { url: 'https://delhincr.indiatimes.com/rssfeedstopstories.cms', source: 'Delhi Mirror', category: 'local', scope: SCOPE_LOCAL, cities: ['delhi', 'new delhi'] },
+  { url: 'https://www.timeout.com/dubai/rss', source: 'Time Out Dubai', category: 'local', scope: SCOPE_LOCAL, cities: ['dubai'] },
+  { url: 'https://whatson.ae/feed/', source: 'WhatsOn Dubai', category: 'local', scope: SCOPE_LOCAL, cities: ['dubai', 'abu dhabi'] },
+  { url: 'https://www.timeout.com/kuala-lumpur/rss', source: 'Time Out KL', category: 'local', scope: SCOPE_LOCAL, cities: ['kuala lumpur', 'kl'] },
+  { url: 'https://www.timeout.com/seoul/rss', source: 'Time Out Seoul', category: 'local', scope: SCOPE_LOCAL, cities: ['seoul'] },
+
+  // Latin America - Major Cities
+  { url: 'https://www.timeout.com/mexico-city/rss', source: 'Time Out Mexico City', category: 'local', scope: SCOPE_LOCAL, cities: ['mexico city', 'cdmx'] },
+  { url: 'https://www.timeout.com/sao-paulo/rss', source: 'Time Out Sao Paulo', category: 'local', scope: SCOPE_LOCAL, cities: ['sao paulo', 'são paulo'] },
+  { url: 'https://www.timeout.com/buenos-aires/rss', source: 'Time Out Buenos Aires', category: 'local', scope: SCOPE_LOCAL, cities: ['buenos aires'] },
+  { url: 'https://thebogotapost.com/feed/', source: 'Bogota Post', category: 'local', scope: SCOPE_LOCAL, cities: ['bogota', 'bogotá'] },
+  { url: 'https://santiagotimes.cl/feed/', source: 'Santiago Times', category: 'local', scope: SCOPE_LOCAL, cities: ['santiago'] },
+  { url: 'https://www.peruthisweek.com/feed/', source: 'Peru This Week', category: 'local', scope: SCOPE_LOCAL, cities: ['lima'] },
+
+  // Oceania - Major Cities
+  { url: 'https://www.timeout.com/sydney/rss', source: 'Time Out Sydney', category: 'local', scope: SCOPE_LOCAL, cities: ['sydney'] },
+  { url: 'https://www.timeout.com/melbourne/rss', source: 'Time Out Melbourne', category: 'local', scope: SCOPE_LOCAL, cities: ['melbourne'] },
+  { url: 'https://www.brisbanetimes.com.au/rss/feed.xml', source: 'Brisbane Times', category: 'local', scope: SCOPE_LOCAL, cities: ['brisbane'] },
+  { url: 'https://www.perthnow.com.au/news/rss', source: 'Perth Now', category: 'local', scope: SCOPE_LOCAL, cities: ['perth'] },
+  { url: 'https://www.timeout.com/auckland/rss', source: 'Time Out Auckland', category: 'local', scope: SCOPE_LOCAL, cities: ['auckland'] },
+
+  // Africa - Major Cities
+  { url: 'https://www.iol.co.za/feed', source: 'IOL Cape Town', category: 'local', scope: SCOPE_LOCAL, cities: ['cape town'] },
+  { url: 'https://www.citizen.co.za/feed/', source: 'The Citizen', category: 'local', scope: SCOPE_LOCAL, cities: ['johannesburg', 'joburg'] },
+  { url: 'https://www.nation.co.ke/feed/', source: 'Daily Nation', category: 'local', scope: SCOPE_LOCAL, cities: ['nairobi'] },
+  { url: 'https://www.monitor.co.ug/feed/', source: 'Daily Monitor', category: 'local', scope: SCOPE_LOCAL, cities: ['kampala'] },
+  { url: 'https://egyptindependent.com/feed/', source: 'Egypt Independent', category: 'local', scope: SCOPE_LOCAL, cities: ['cairo'] },
+  { url: 'https://www.moroccoworldnews.com/feed/', source: 'Morocco World News', category: 'local', scope: SCOPE_LOCAL, cities: ['casablanca', 'rabat', 'marrakech'] },
+
+  // Canada - Major Cities
+  { url: 'https://www.thestar.com/search/?f=rss', source: 'Toronto Star', category: 'local', scope: SCOPE_LOCAL, cities: ['toronto'] },
+  { url: 'https://www.blogto.com/feed/', source: 'BlogTO', category: 'local', scope: SCOPE_LOCAL, cities: ['toronto'] },
+  { url: 'https://montrealgazette.com/feed/', source: 'Montreal Gazette', category: 'local', scope: SCOPE_LOCAL, cities: ['montreal'] },
+  { url: 'https://www.vancouverisawesome.com/feed/', source: 'Vancouver Is Awesome', category: 'local', scope: SCOPE_LOCAL, cities: ['vancouver'] },
+  { url: 'https://dailyhive.com/vancouver/feed', source: 'Daily Hive Vancouver', category: 'local', scope: SCOPE_LOCAL, cities: ['vancouver'] },
+  { url: 'https://edmontonjournal.com/feed/', source: 'Edmonton Journal', category: 'local', scope: SCOPE_LOCAL, cities: ['edmonton'] },
+  { url: 'https://calgaryherald.com/feed/', source: 'Calgary Herald', category: 'local', scope: SCOPE_LOCAL, cities: ['calgary'] },
+  { url: 'https://ottawacitizen.com/feed/', source: 'Ottawa Citizen', category: 'local', scope: SCOPE_LOCAL, cities: ['ottawa'] },
 ];
+
+// City-to-region mapping for local news fallback
+const CITY_REGIONS = {
+  // North America
+  'new york': 'north_america', 'nyc': 'north_america', 'los angeles': 'north_america', 'chicago': 'north_america',
+  'houston': 'north_america', 'dallas': 'north_america', 'miami': 'north_america', 'san francisco': 'north_america',
+  'seattle': 'north_america', 'denver': 'north_america', 'boston': 'north_america', 'philadelphia': 'north_america',
+  'washington dc': 'north_america', 'atlanta': 'north_america', 'toronto': 'north_america', 'vancouver': 'north_america',
+  'montreal': 'north_america', 'calgary': 'north_america', 'ottawa': 'north_america', 'edmonton': 'north_america',
+
+  // Europe
+  'london': 'europe', 'paris': 'europe', 'berlin': 'europe', 'madrid': 'europe', 'barcelona': 'europe',
+  'rome': 'europe', 'milan': 'europe', 'amsterdam': 'europe', 'brussels': 'europe', 'vienna': 'europe',
+  'munich': 'europe', 'frankfurt': 'europe', 'zurich': 'europe', 'geneva': 'europe', 'lisbon': 'europe',
+  'dublin': 'europe', 'stockholm': 'europe', 'copenhagen': 'europe', 'oslo': 'europe', 'helsinki': 'europe',
+  'prague': 'europe', 'budapest': 'europe', 'warsaw': 'europe', 'athens': 'europe',
+
+  // Asia
+  'tokyo': 'east_asia', 'beijing': 'east_asia', 'shanghai': 'east_asia', 'hong kong': 'east_asia',
+  'seoul': 'east_asia', 'taipei': 'east_asia', 'singapore': 'southeast_asia', 'bangkok': 'southeast_asia',
+  'kuala lumpur': 'southeast_asia', 'jakarta': 'southeast_asia', 'manila': 'southeast_asia', 'ho chi minh': 'southeast_asia',
+  'mumbai': 'south_asia', 'delhi': 'south_asia', 'bangalore': 'south_asia', 'chennai': 'south_asia',
+  'kolkata': 'south_asia', 'karachi': 'south_asia', 'dhaka': 'south_asia',
+
+  // Middle East
+  'dubai': 'middle_east', 'abu dhabi': 'middle_east', 'doha': 'middle_east', 'riyadh': 'middle_east',
+  'tel aviv': 'middle_east', 'jerusalem': 'middle_east', 'istanbul': 'middle_east', 'cairo': 'middle_east',
+
+  // Africa
+  'johannesburg': 'africa', 'cape town': 'africa', 'nairobi': 'africa', 'lagos': 'africa',
+  'cairo': 'africa', 'casablanca': 'africa', 'accra': 'africa', 'addis ababa': 'africa',
+
+  // Latin America
+  'mexico city': 'latin_america', 'sao paulo': 'latin_america', 'rio de janeiro': 'latin_america',
+  'buenos aires': 'latin_america', 'bogota': 'latin_america', 'lima': 'latin_america',
+  'santiago': 'latin_america', 'caracas': 'latin_america', 'havana': 'latin_america',
+
+  // Oceania
+  'sydney': 'oceania', 'melbourne': 'oceania', 'brisbane': 'oceania', 'perth': 'oceania',
+  'auckland': 'oceania', 'wellington': 'oceania',
+};
+
+// Get all available cities for selection
+const getAvailableCities = () => {
+  const cities = new Set();
+  RSS_SOURCES.forEach(source => {
+    if (source.cities) {
+      source.cities.forEach(city => cities.add(city.toLowerCase()));
+    }
+  });
+  return [...cities].sort();
+};
+
+// Export available cities
+export const availableCities = getAvailableCities();
 
 // Keywords for market relevance scoring
 const MARKET_KEYWORDS = {
@@ -324,7 +537,10 @@ async function fetchFeed(source) {
     return feed.items.slice(0, 15).map(item => ({
       ...item,
       feedSource: source.source,
-      feedCategory: source.category
+      feedCategory: source.category,
+      feedScope: source.scope || SCOPE_INTERNATIONAL,
+      feedRegion: source.region || null,
+      feedCities: source.cities || null
     }));
   } catch (error) {
     console.error(`[NewsAggregator] Failed to fetch ${source.source}:`, error.message);
@@ -367,8 +583,10 @@ export const newsAggregator = {
       const text = `${item.title} ${item.contentSnippet || ''}`;
       const relevanceScore = scoreMarketRelevance(item.title, item.contentSnippet || '');
 
-      // Only include items with some market relevance
-      if (relevanceScore < 1) continue;
+      // For international/regional news, require market relevance
+      // For local news, include all items regardless of market relevance
+      const isLocalNews = item.feedScope === SCOPE_LOCAL;
+      if (!isLocalNews && relevanceScore < 1) continue;
 
       const regions = detectRegions(text);
       const exposedMarkets = getExposedMarkets(regions);
@@ -389,6 +607,10 @@ export const newsAggregator = {
         whyItMatters: generateWhyItMatters(item, regions, relevanceScore),
         isNew: isNewInformation(item, processedItems),
         isSignal: relevanceScore >= 5,
+        // Location-based fields
+        scope: item.feedScope,
+        feedRegion: item.feedRegion,
+        cities: item.feedCities,
       });
     }
 
@@ -399,10 +621,55 @@ export const newsAggregator = {
       return dateB - dateA;
     });
 
-    const result = processedItems.slice(0, 100);
+    // Increased limit to accommodate expanded sources
+    const result = processedItems.slice(0, 200);
     cache.set('news', result);
 
     return result;
+  },
+
+  // Get news filtered by user location (city)
+  async getLatestByLocation(userCity = null) {
+    const allNews = await this.getLatest();
+
+    if (!userCity) {
+      // No city selected - return only international news
+      return allNews.filter(item => item.scope === SCOPE_INTERNATIONAL);
+    }
+
+    const cityLower = userCity.toLowerCase();
+    const userRegion = CITY_REGIONS[cityLower];
+
+    // Build the filtered feed:
+    // 1. All international news
+    // 2. Regional news matching user's region
+    // 3. Local news matching user's city
+    return allNews.filter(item => {
+      // Always include international news
+      if (item.scope === SCOPE_INTERNATIONAL) return true;
+
+      // Include regional news if user's city is in that region
+      if (item.scope === SCOPE_REGIONAL && userRegion && item.feedRegion === userRegion) {
+        return true;
+      }
+
+      // Include local news if it matches user's city
+      if (item.scope === SCOPE_LOCAL && item.cities) {
+        return item.cities.some(city => city.toLowerCase() === cityLower);
+      }
+
+      return false;
+    });
+  },
+
+  // Get list of available cities for selection
+  getAvailableCities() {
+    return availableCities;
+  },
+
+  // Get city-to-region mapping
+  getCityRegions() {
+    return CITY_REGIONS;
   },
 
   // Group news by narrative/theme

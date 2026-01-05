@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Heart, Share, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
+import { MessageCircle, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, MapPin, Globe2 } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { likesService } from '../services/likes';
 import { commentsService } from '../services/comments';
@@ -144,6 +144,19 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
             <span className="font-bold text-white hover:underline">{item.source}</span>
             <span className="text-gray-500">·</span>
             <span className="text-gray-500">{formatDate(item.pubDate)}</span>
+            {/* Scope badge for local/regional news */}
+            {item.scope === 'local' && (
+              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs">
+                <MapPin className="w-3 h-3" />
+                Local
+              </span>
+            )}
+            {item.scope === 'regional' && (
+              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs">
+                <Globe2 className="w-3 h-3" />
+                Regional
+              </span>
+            )}
             <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={handleBookmark}
@@ -241,12 +254,15 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userCity, getNewsByUserLocation } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
   const loaderRef = useRef(null);
+
+  // Filter news based on user's selected location
+  const filteredNews = getNewsByUserLocation();
 
   // Subscribe to all likes
   useEffect(() => {
@@ -262,7 +278,7 @@ function NewsFeed() {
     const counts = {};
 
     // Subscribe to comments for displayed posts
-    news.slice(0, displayCount).forEach(item => {
+    filteredNews.slice(0, displayCount).forEach(item => {
       const unsub = commentsService.subscribeToComments(item.id, (comments) => {
         // Count all comments (including nested)
         const countAll = (commentList) => {
@@ -279,14 +295,14 @@ function NewsFeed() {
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [news, displayCount]);
+  }, [filteredNews, displayCount]);
 
   const handleNavigateToPost = (postId) => {
     navigate(`/post/${postId}`);
   };
 
   // Sort by date (newest first)
-  const sortedNews = [...news].sort((a, b) => {
+  const sortedNews = [...filteredNews].sort((a, b) => {
     const dateA = new Date(a.pubDate).getTime() || 0;
     const dateB = new Date(b.pubDate).getTime() || 0;
     return dateB - dateA;
@@ -347,6 +363,11 @@ function NewsFeed() {
       <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
         <div className="px-4 py-3">
           <h2 className="text-xl font-bold text-white">What's Happening</h2>
+          {userCity && (
+            <p className="text-sm text-gray-400 mt-0.5">
+              Showing news for {userCity.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} and worldwide
+            </p>
+          )}
         </div>
       </div>
 

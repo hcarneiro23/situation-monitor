@@ -2,6 +2,7 @@ import React from 'react';
 import { useStore } from '../store/useStore';
 import { useAuth } from '../context/AuthContext';
 import { Bell, LogOut, User } from 'lucide-react';
+import LocationSelector from './LocationSelector';
 
 function Header() {
   const { isConnected, alerts } = useStore();
@@ -29,7 +30,10 @@ function Header() {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Location selector */}
+            <LocationSelector />
+
             {/* Notifications */}
             <button className="relative p-2 rounded-full hover:bg-intel-700 transition-colors">
               <Bell className="w-5 h-5 text-gray-400" />

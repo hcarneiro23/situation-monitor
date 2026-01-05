@@ -68,8 +68,34 @@ app.get('/api/state', (req, res) => {
 
 app.get('/api/news', async (req, res) => {
   try {
-    const news = await newsAggregator.getLatest();
+    const { city } = req.query;
+    let news;
+    if (city) {
+      news = await newsAggregator.getLatestByLocation(city);
+    } else {
+      news = await newsAggregator.getLatest();
+    }
     res.json(news);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get available cities for location selection
+app.get('/api/cities', (req, res) => {
+  try {
+    const cities = newsAggregator.getAvailableCities();
+    res.json(cities);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get city-to-region mapping
+app.get('/api/city-regions', (req, res) => {
+  try {
+    const cityRegions = newsAggregator.getCityRegions();
+    res.json(cityRegions);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

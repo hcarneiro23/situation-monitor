@@ -18,6 +18,10 @@ export const useStore = create((set, get) => ({
   selectedRegion: null,
   expandedNews: null,
 
+  // User location preferences
+  userCity: localStorage.getItem('userCity') || null,
+  availableCities: [],
+
   // Watchlist
   watchlist: JSON.parse(localStorage.getItem('watchlist') || '[]'),
 
@@ -41,6 +45,17 @@ export const useStore = create((set, get) => ({
 
   setConnected: (isConnected) => set({ isConnected }),
   setLastUpdate: (lastUpdate) => set({ lastUpdate }),
+
+  // Location preferences
+  setUserCity: (city) => {
+    if (city) {
+      localStorage.setItem('userCity', city);
+    } else {
+      localStorage.removeItem('userCity');
+    }
+    set({ userCity: city });
+  },
+  setAvailableCities: (cities) => set({ availableCities: cities }),
 
   setSelectedSignal: (selectedSignal) => set({ selectedSignal }),
   setSelectedScenario: (selectedScenario) => set({ selectedScenario }),
@@ -151,6 +166,65 @@ export const useStore = create((set, get) => ({
     return get().news.filter(n =>
       n.regions.some(r => r.toLowerCase().includes(region.toLowerCase()))
     );
+  },
+
+  // Get news filtered by user's selected city (includes international + regional + local)
+  getNewsByUserLocation: () => {
+    const { news, userCity } = get();
+
+    if (!userCity) {
+      // No city selected - return only international news
+      return news.filter(item => item.scope === 'international' || !item.scope);
+    }
+
+    const cityLower = userCity.toLowerCase();
+
+    // City to region mapping (matches backend)
+    const cityRegions = {
+      'new york': 'north_america', 'nyc': 'north_america', 'los angeles': 'north_america', 'chicago': 'north_america',
+      'houston': 'north_america', 'dallas': 'north_america', 'miami': 'north_america', 'san francisco': 'north_america',
+      'seattle': 'north_america', 'denver': 'north_america', 'boston': 'north_america', 'philadelphia': 'north_america',
+      'washington dc': 'north_america', 'atlanta': 'north_america', 'toronto': 'north_america', 'vancouver': 'north_america',
+      'montreal': 'north_america', 'calgary': 'north_america', 'ottawa': 'north_america', 'edmonton': 'north_america',
+      'london': 'europe', 'paris': 'europe', 'berlin': 'europe', 'madrid': 'europe', 'barcelona': 'europe',
+      'rome': 'europe', 'milan': 'europe', 'amsterdam': 'europe', 'brussels': 'europe', 'vienna': 'europe',
+      'munich': 'europe', 'frankfurt': 'europe', 'zurich': 'europe', 'geneva': 'europe', 'lisbon': 'europe',
+      'dublin': 'europe', 'stockholm': 'europe', 'copenhagen': 'europe', 'oslo': 'europe', 'helsinki': 'europe',
+      'prague': 'europe', 'budapest': 'europe', 'warsaw': 'europe', 'athens': 'europe',
+      'tokyo': 'east_asia', 'beijing': 'east_asia', 'shanghai': 'east_asia', 'hong kong': 'east_asia',
+      'seoul': 'east_asia', 'taipei': 'east_asia', 'singapore': 'southeast_asia', 'bangkok': 'southeast_asia',
+      'kuala lumpur': 'southeast_asia', 'jakarta': 'southeast_asia', 'manila': 'southeast_asia', 'ho chi minh': 'southeast_asia',
+      'mumbai': 'south_asia', 'delhi': 'south_asia', 'bangalore': 'south_asia', 'chennai': 'south_asia',
+      'kolkata': 'south_asia', 'karachi': 'south_asia', 'dhaka': 'south_asia',
+      'dubai': 'middle_east', 'abu dhabi': 'middle_east', 'doha': 'middle_east', 'riyadh': 'middle_east',
+      'tel aviv': 'middle_east', 'jerusalem': 'middle_east', 'istanbul': 'middle_east', 'cairo': 'middle_east',
+      'johannesburg': 'africa', 'cape town': 'africa', 'nairobi': 'africa', 'lagos': 'africa',
+      'casablanca': 'africa', 'accra': 'africa', 'addis ababa': 'africa',
+      'mexico city': 'latin_america', 'sao paulo': 'latin_america', 'rio de janeiro': 'latin_america',
+      'buenos aires': 'latin_america', 'bogota': 'latin_america', 'lima': 'latin_america',
+      'santiago': 'latin_america', 'caracas': 'latin_america', 'havana': 'latin_america',
+      'sydney': 'oceania', 'melbourne': 'oceania', 'brisbane': 'oceania', 'perth': 'oceania',
+      'auckland': 'oceania', 'wellington': 'oceania',
+    };
+
+    const userRegion = cityRegions[cityLower];
+
+    return news.filter(item => {
+      // Always include international news (or items without scope for backward compatibility)
+      if (item.scope === 'international' || !item.scope) return true;
+
+      // Include regional news if user's city is in that region
+      if (item.scope === 'regional' && userRegion && item.feedRegion === userRegion) {
+        return true;
+      }
+
+      // Include local news if it matches user's city
+      if (item.scope === 'local' && item.cities) {
+        return item.cities.some(city => city.toLowerCase() === cityLower);
+      }
+
+      return false;
+    });
   },
 
   getNewsBySignal: (signalId) => {
