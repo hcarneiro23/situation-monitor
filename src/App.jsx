@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
@@ -6,6 +7,7 @@ import NewsFeed from './components/NewsFeed';
 import TrendingTopics from './components/TrendingTopics';
 import Watchlist from './components/Watchlist';
 import AlertPanel from './components/AlertPanel';
+import PostDetail from './components/PostDetail';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
@@ -158,35 +160,47 @@ function App() {
   }, []);
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-intel-900 text-gray-100">
-        {/* Toast notifications - fixed position */}
-        <AlertPanel />
+    <BrowserRouter>
+      <ProtectedRoute>
+        <div className="min-h-screen bg-intel-900 text-gray-100">
+          {/* Toast notifications - fixed position */}
+          <AlertPanel />
 
-        {/* Header */}
-        <Header />
+          <Routes>
+            {/* Post detail page */}
+            <Route path="/post/:postId" element={<PostDetail />} />
 
-        {/* Twitter-like centered layout */}
-        <main className="max-w-[1200px] mx-auto">
-          <div className="flex">
-            {/* Main feed column */}
-            <div className="flex-1 min-w-0 border-x border-intel-700">
-              <div className="h-[calc(100vh-64px)]">
-                <NewsFeed />
-              </div>
-            </div>
+            {/* Main feed */}
+            <Route path="*" element={
+              <>
+                {/* Header */}
+                <Header />
 
-            {/* Right sidebar - Trends & Watchlist */}
-            <div className="hidden lg:block w-[350px] p-4 space-y-4">
-              <div className="h-[calc(50vh-50px)]">
-                <TrendingTopics />
-              </div>
-              <Watchlist />
-            </div>
-          </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+                {/* Twitter-like centered layout */}
+                <main className="max-w-[1200px] mx-auto">
+                  <div className="flex">
+                    {/* Main feed column */}
+                    <div className="flex-1 min-w-0 border-x border-intel-700">
+                      <div className="h-[calc(100vh-64px)]">
+                        <NewsFeed />
+                      </div>
+                    </div>
+
+                    {/* Right sidebar - Trends & Watchlist */}
+                    <div className="hidden lg:block w-[350px] p-4 space-y-4">
+                      <div className="h-[calc(50vh-50px)]">
+                        <TrendingTopics />
+                      </div>
+                      <Watchlist />
+                    </div>
+                  </div>
+                </main>
+              </>
+            } />
+          </Routes>
+        </div>
+      </ProtectedRoute>
+    </BrowserRouter>
   );
 }
 

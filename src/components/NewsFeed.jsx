@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { MessageCircle, Heart, Share, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
@@ -72,15 +73,13 @@ function formatDate(dateStr) {
 }
 
 // Tweet-like news item component
-function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
+function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked, onNavigate }) {
   const [imgError, setImgError] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likedItems[item.id];
 
   const handleClick = () => {
-    if (item.link) {
-      window.open(item.link, '_blank', 'noopener,noreferrer');
-    }
+    onNavigate(item.id);
   };
 
   const handleLike = (e) => {
@@ -119,10 +118,7 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
 
   const handleReply = (e) => {
     e.stopPropagation();
-    // Open the post page (source article)
-    if (item.link) {
-      window.open(item.link, '_blank', 'noopener,noreferrer');
-    }
+    onNavigate(item.id);
   };
 
   return (
@@ -250,11 +246,16 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
 }
 
 function NewsFeed() {
+  const navigate = useNavigate();
   const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [likedItems, setLikedItemsState] = useState(getLikedItems);
   const loaderRef = useRef(null);
+
+  const handleNavigateToPost = (postId) => {
+    navigate(`/post/${postId}`);
+  };
 
   // Sort by date (newest first)
   const sortedNews = [...news].sort((a, b) => {
@@ -340,6 +341,7 @@ function NewsFeed() {
                 onLike={handleLike}
                 onBookmark={handleBookmark}
                 isBookmarked={isInWatchlist(item.id)}
+                onNavigate={handleNavigateToPost}
               />
             ))}
 
