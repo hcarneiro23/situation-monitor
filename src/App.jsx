@@ -5,8 +5,6 @@ import Header from './components/Header';
 import WhatMattersNow from './components/WhatMattersNow';
 import NewsFeed from './components/NewsFeed';
 import SignalPanel from './components/SignalPanel';
-import PoliticalMarketOverlay from './components/PoliticalMarketOverlay';
-import MarketPanels from './components/MarketPanels';
 import ScenarioWorkspace from './components/ScenarioWorkspace';
 import CatalystTimeline from './components/CatalystTimeline';
 import Watchlist from './components/Watchlist';
@@ -188,17 +186,7 @@ function App() {
             </div>
           </section>
 
-          {/* Section 4: Political → Market Overlay */}
-          <section id="political-market">
-            <PoliticalMarketOverlay />
-          </section>
-
-          {/* Section 5: Market Context Panels */}
-          <section id="markets">
-            <MarketPanels />
-          </section>
-
-          {/* Section 6 & 7: Scenarios and Timeline side by side */}
+          {/* Section 4 & 5: Scenarios and Timeline side by side */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div id="scenarios">
               <ScenarioWorkspace />
