@@ -183,8 +183,9 @@ async function initialize() {
 }
 
 const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0';
 
-server.listen(PORT, () => {
-  console.log(`[Server] Running on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`[Server] Running on http://${HOST}:${PORT}`);
   initialize();
 });
