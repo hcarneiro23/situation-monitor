@@ -167,12 +167,9 @@ function TrendingTopics() {
     <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-intel-700 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <TrendingUp className="w-5 h-5 text-amber-400" />
-          <h2 className="font-semibold text-white">Trending Topics</h2>
-        </div>
+        <h2 className="font-semibold text-white">Trends</h2>
         <span className="text-xs text-gray-500">
-          From {news.length} articles
+          {news.length} articles
         </span>
       </div>
 

@@ -160,40 +160,31 @@ function App() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-intel-900 text-gray-100">
-        {/* Header with connection status */}
+        {/* Toast notifications - fixed position */}
+        <AlertPanel />
+
+        {/* Header */}
         <Header />
 
-        {/* Main content - single continuous surface */}
-        <main className="max-w-[1920px] mx-auto px-4 py-6 space-y-6">
-          {/* Alert Panel - slides in when there are alerts */}
-          <AlertPanel />
-
-          {/* Section 1: News Feed and Trending Topics side by side */}
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <NewsFeed />
+        {/* Twitter-like centered layout */}
+        <main className="max-w-[1200px] mx-auto">
+          <div className="flex">
+            {/* Main feed column */}
+            <div className="flex-1 min-w-0 border-x border-intel-700">
+              <div className="h-[calc(100vh-64px)]">
+                <NewsFeed />
+              </div>
             </div>
-            <div className="lg:col-span-1" id="trending">
-              <TrendingTopics />
+
+            {/* Right sidebar - Trends & Watchlist */}
+            <div className="hidden lg:block w-[350px] p-4 space-y-4">
+              <div className="h-[calc(50vh-50px)]">
+                <TrendingTopics />
+              </div>
+              <Watchlist />
             </div>
-          </section>
-
-          {/* Section 2: Personal Watchlist */}
-          <section id="watchlist">
-            <Watchlist />
-          </section>
-        </main>
-
-        {/* Footer */}
-        <footer className="border-t border-intel-700 py-4 mt-8">
-          <div className="max-w-[1920px] mx-auto px-4 text-center text-sm text-gray-500">
-            <p>Situation Monitor - Intelligence Console</p>
-            <p className="text-xs mt-1">
-              Data sources: Reuters, BBC, Bloomberg, Al Jazeera, Financial Times, MarketWatch, and others.
-              Market data via public APIs. Not financial advice.
-            </p>
           </div>
-        </footer>
+        </main>
       </div>
     </ProtectedRoute>
   );

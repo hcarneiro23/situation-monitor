@@ -157,13 +157,12 @@ function NewsFeed() {
   };
 
   return (
-    <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden" id="news">
+    <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden h-full flex flex-col" id="news">
       {/* Header */}
       <div className="px-4 py-3 border-b border-intel-700 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Newspaper className="w-5 h-5 text-blue-400" />
-          <h2 className="font-semibold text-white">Intelligence Feed</h2>
-          <span className="text-xs text-gray-500">({filteredNews.length} items)</span>
+          <h2 className="font-semibold text-white">What's Happening</h2>
+          <span className="text-xs text-gray-500">({filteredNews.length})</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -242,7 +241,7 @@ function NewsFeed() {
       )}
 
       {/* News list - key forces re-render when sort/filter changes */}
-      <div key={`${sortOrder}-${filter}`} className="divide-y divide-intel-700 max-h-[600px] overflow-y-auto">
+      <div key={`${sortOrder}-${filter}`} className="divide-y divide-intel-700 flex-1 overflow-y-auto">
         {clusterView ? (
           // Clustered view
           Object.entries(clusteredNews).map(([cluster, items]) => (

@@ -85,12 +85,9 @@ function Watchlist() {
     <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-intel-700 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Eye className="w-5 h-5 text-indigo-400" />
-          <h2 className="font-semibold text-white">Topic Watchlist</h2>
-        </div>
+        <h2 className="font-semibold text-white">Watchlist</h2>
         <span className="text-xs text-gray-500">
-          {topicItems.length} topics tracked
+          {topicItems.length} tracked
         </span>
       </div>
 
@@ -98,9 +95,8 @@ function Watchlist() {
       <div className="divide-y divide-intel-700">
         {topicItems.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <Eye className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No topics in watchlist</p>
-            <p className="text-xs mt-1">Click the + icon on trending topics to add them</p>
+            <p>No topics tracked yet</p>
+            <p className="text-xs mt-1">Click + on trends to track them</p>
           </div>
         ) : (
           topicItems.map(item => {

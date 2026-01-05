@@ -1,89 +1,86 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
-import { Bell, X, AlertTriangle, Info, CheckCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { X } from 'lucide-react';
 
 function AlertPanel() {
-  const { alerts, markAlertRead, clearAlerts } = useStore();
+  const { alerts, markAlertRead, news, watchlist, addAlert } = useStore();
   const unreadAlerts = alerts.filter(a => !a.read);
+  const prevNewsRef = useRef(news);
+
+  // Check for new mentions of watched topics
+  useEffect(() => {
+    if (prevNewsRef.current.length === 0 || news.length === 0) {
+      prevNewsRef.current = news;
+      return;
+    }
+
+    const topicItems = watchlist.filter(item => item.type === 'topic');
+    const prevNewsIds = new Set(prevNewsRef.current.map(n => n.id));
+    const newNews = news.filter(n => !prevNewsIds.has(n.id));
+
+    if (newNews.length > 0) {
+      topicItems.forEach(topic => {
+        const topicName = topic.name.toLowerCase();
+        const matchingNews = newNews.filter(item => {
+          const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+          return text.includes(topicName);
+        });
+
+        if (matchingNews.length > 0) {
+          addAlert({
+            type: 'topic',
+            title: topic.name,
+            message: `${matchingNews.length} new ${matchingNews.length === 1 ? 'mention' : 'mentions'}`,
+            severity: 'info',
+            topicId: topic.id
+          });
+        }
+      });
+    }
+
+    prevNewsRef.current = news;
+  }, [news, watchlist]);
+
+  // Auto-dismiss after 5 seconds
+  useEffect(() => {
+    if (unreadAlerts.length > 0) {
+      const timer = setTimeout(() => {
+        markAlertRead(unreadAlerts[0].id);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [unreadAlerts]);
 
   if (unreadAlerts.length === 0) {
     return null;
   }
 
-  const getSeverityIcon = (severity) => {
-    switch (severity) {
-      case 'high':
-        return <AlertTriangle className="w-4 h-4 text-red-400" />;
-      case 'medium':
-        return <Info className="w-4 h-4 text-amber-400" />;
-      default:
-        return <CheckCircle className="w-4 h-4 text-blue-400" />;
-    }
-  };
-
-  const getSeverityStyle = (severity) => {
-    switch (severity) {
-      case 'high':
-        return 'border-red-500/50 bg-red-500/10';
-      case 'medium':
-        return 'border-amber-500/50 bg-amber-500/10';
-      default:
-        return 'border-blue-500/50 bg-blue-500/10';
-    }
-  };
-
   return (
-    <div className="bg-intel-800 rounded-xl border border-intel-700 overflow-hidden animate-slide-in">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-intel-700 flex items-center justify-between bg-intel-700/30">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Bell className="w-5 h-5 text-amber-400" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-              {unreadAlerts.length}
-            </span>
-          </div>
-          <h2 className="font-semibold text-white">Active Alerts</h2>
-        </div>
-
-        <button
-          onClick={clearAlerts}
-          className="text-xs text-gray-400 hover:text-white transition-colors"
+    <div className="fixed top-20 right-4 z-50 space-y-2 max-w-sm">
+      {unreadAlerts.slice(0, 3).map((alert, index) => (
+        <div
+          key={alert.id}
+          className="bg-intel-800 border border-intel-600 rounded-xl shadow-lg p-4 animate-slide-in flex items-start gap-3"
+          style={{ animationDelay: `${index * 100}ms` }}
         >
-          Clear All
-        </button>
-      </div>
+          {/* Blue dot indicator */}
+          <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
 
-      {/* Alerts list */}
-      <div className="divide-y divide-intel-700 max-h-48 overflow-y-auto">
-        {unreadAlerts.map(alert => (
-          <div
-            key={alert.id}
-            className={`p-4 flex items-start gap-3 border-l-2 ${getSeverityStyle(alert.severity)}`}
-          >
-            {/* Icon */}
-            {getSeverityIcon(alert.severity)}
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-white">{alert.title}</h3>
-              <p className="text-xs text-gray-400 mt-1">{alert.message}</p>
-              <span className="text-xs text-gray-500 mt-1 block">
-                {formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })}
-              </span>
-            </div>
-
-            {/* Dismiss */}
-            <button
-              onClick={() => markAlertRead(alert.id)}
-              className="p-1 hover:bg-intel-600 rounded transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-500 hover:text-white" />
-            </button>
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white">{alert.title}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{alert.message}</p>
           </div>
-        ))}
-      </div>
+
+          {/* Dismiss */}
+          <button
+            onClick={() => markAlertRead(alert.id)}
+            className="p-1 hover:bg-intel-600 rounded-full transition-colors flex-shrink-0"
+          >
+            <X className="w-4 h-4 text-gray-500 hover:text-white" />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
