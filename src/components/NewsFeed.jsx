@@ -84,23 +84,29 @@ function NewsFeed() {
 
   // Filter and sort news
   const filteredNews = useMemo(() => {
-    let result = news;
-    if (filter === 'high') result = news.filter(n => n.relevanceScore >= 7);
-    else if (filter === 'signals') result = news.filter(n => n.isSignal);
-    else if (filter === 'new') result = news.filter(n => n.isNew);
+    // Always create a new array to ensure proper re-rendering
+    let result = [...news];
 
-    // Sort
-    if (sortOrder === 'latest') {
-      result = [...result].sort((a, b) => getTimestamp(b.pubDate) - getTimestamp(a.pubDate));
-    } else if (sortOrder === 'relevance') {
-      result = [...result].sort((a, b) => {
-        const scoreDiff = b.relevanceScore - a.relevanceScore;
-        // If same relevance, sort by date
-        if (scoreDiff === 0) {
-          return getTimestamp(b.pubDate) - getTimestamp(a.pubDate);
-        }
-        return scoreDiff;
+    // Apply filter
+    if (filter === 'high') {
+      result = result.filter(n => n.relevanceScore >= 7);
+    } else if (filter === 'signals') {
+      result = result.filter(n => n.isSignal);
+    } else if (filter === 'new') {
+      result = result.filter(n => n.isNew);
+    }
+
+    // Apply sort - always sort to ensure correct order
+    if (sortOrder === 'relevance') {
+      result.sort((a, b) => {
+        const scoreDiff = (b.relevanceScore || 0) - (a.relevanceScore || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        // Tiebreaker: newest first
+        return getTimestamp(b.pubDate) - getTimestamp(a.pubDate);
       });
+    } else {
+      // Default: sort by date (latest first)
+      result.sort((a, b) => getTimestamp(b.pubDate) - getTimestamp(a.pubDate));
     }
 
     return result;

@@ -367,11 +367,11 @@ export const newsAggregator = {
       });
     }
 
-    // Sort by relevance score, then by date
+    // Sort by date (newest first) - frontend handles relevance sorting
     processedItems.sort((a, b) => {
-      const scoreDiff = b.relevanceScore - a.relevanceScore;
-      if (Math.abs(scoreDiff) > 1) return scoreDiff;
-      return new Date(b.pubDate) - new Date(a.pubDate);
+      const dateA = new Date(a.pubDate).getTime();
+      const dateB = new Date(b.pubDate).getTime();
+      return dateB - dateA;
     });
 
     const result = processedItems.slice(0, 100);
