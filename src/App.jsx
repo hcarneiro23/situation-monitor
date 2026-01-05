@@ -6,7 +6,7 @@ import WhatMattersNow from './components/WhatMattersNow';
 import NewsFeed from './components/NewsFeed';
 import SignalPanel from './components/SignalPanel';
 import ScenarioWorkspace from './components/ScenarioWorkspace';
-import CatalystTimeline from './components/CatalystTimeline';
+import TrendingTopics from './components/TrendingTopics';
 import Watchlist from './components/Watchlist';
 import AlertPanel from './components/AlertPanel';
 
@@ -191,8 +191,8 @@ function App() {
             <div id="scenarios">
               <ScenarioWorkspace />
             </div>
-            <div id="timeline">
-              <CatalystTimeline />
+            <div id="trending">
+              <TrendingTopics />
             </div>
           </section>
 
