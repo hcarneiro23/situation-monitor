@@ -7,7 +7,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: Situation Monitor intelligence console\n\nSingle-page application for monitoring geopolitical developments\nand their translation into market behavior.\n\nFeatures:\n- Real-time news aggregation from 15+ RSS sources\n- Live market data via Yahoo Finance API\n- Signal generation \\(sanctions, escalation, policy shifts\\)\n- Scenario tracking with probability adjustments\n- Interactive relationship/dependency map\n- Catalyst timeline with upcoming events\n- Personal watchlist with alert triggers\n\nTech stack:\n- Backend: Node.js, Express, WebSocket\n- Frontend: React, Vite, Tailwind CSS, D3.js, Zustand\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "WebFetch(domain:localhost)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nadd configurable backend URL for separate deployment\n\n- VITE_BACKEND_URL env var for production backend\n- Frontend can now connect to external backend \\(Railway/Render\\)\n- Local dev still works without changes\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nadd configurable backend URL for separate deployment\n\n- VITE_BACKEND_URL env var for production backend\n- Frontend can now connect to external backend \\(Railway/Render\\)\n- Local dev still works without changes\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
     ]
   }
 }

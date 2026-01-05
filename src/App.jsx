@@ -14,11 +14,19 @@ import AlertPanel from './components/AlertPanel';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
-const getApiUrl = (path) => BACKEND_URL ? `${BACKEND_URL}${path}` : path;
+
+const getApiUrl = (path) => {
+  if (!BACKEND_URL) return path;
+  // Ensure URL has protocol
+  const baseUrl = BACKEND_URL.startsWith('http') ? BACKEND_URL : `https://${BACKEND_URL}`;
+  return `${baseUrl}${path}`;
+};
+
 const getWsUrl = () => {
   if (BACKEND_URL) {
-    // Convert http(s) URL to ws(s)
-    return BACKEND_URL.replace(/^http/, 'ws');
+    // Ensure URL has protocol, then convert http(s) to ws(s)
+    let url = BACKEND_URL.startsWith('http') ? BACKEND_URL : `https://${BACKEND_URL}`;
+    return url.replace(/^http/, 'ws');
   }
   // Local development fallback
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
