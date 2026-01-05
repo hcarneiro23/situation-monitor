@@ -1,16 +1,10 @@
-import axios from 'axios';
+import yahooFinance from 'yahoo-finance2';
 import NodeCache from 'node-cache';
 
 const cache = new NodeCache({ stdTTL: 60 }); // 1 minute cache
 
-// We'll use free public APIs for market data
-// Yahoo Finance (via query endpoints), exchangerate.host, etc.
-
-// Try multiple Yahoo Finance endpoints
-const YAHOO_ENDPOINTS = [
-  'https://query2.finance.yahoo.com/v8/finance/chart',
-  'https://query1.finance.yahoo.com/v8/finance/chart'
-];
+// Suppress yahoo-finance2 validation warnings
+yahooFinance.suppressNotices(['yahooSurvey']);
 
 // Key market symbols to track
 const SYMBOLS = {
@@ -96,61 +90,49 @@ const ASSET_DRIVERS = {
 };
 
 async function fetchYahooQuote(symbol) {
-  // Try each endpoint until one works
-  for (const baseUrl of YAHOO_ENDPOINTS) {
-    try {
-      const response = await axios.get(`${baseUrl}/${symbol}`, {
-        params: {
-          interval: '1d',
-          range: '5d',
-          includePrePost: false,
-          events: 'div,split'
-        },
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json,text/html,application/xhtml+xml',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive'
-        },
-        timeout: 8000
-      });
+  try {
+    // Use yahoo-finance2 which handles authentication automatically
+    const [quote, history] = await Promise.all([
+      yahooFinance.quote(symbol),
+      yahooFinance.chart(symbol, {
+        period1: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        period2: new Date(),
+        interval: '1d'
+      }).catch(() => null)
+    ]);
 
-      const result = response.data.chart.result[0];
-      const meta = result.meta;
-      const quotes = result.indicators.quote[0];
+    if (!quote) return null;
 
-      const currentPrice = meta.regularMarketPrice;
-      const previousClose = meta.previousClose || meta.chartPreviousClose;
-      const change = currentPrice - previousClose;
-      const changePercent = (change / previousClose) * 100;
+    const currentPrice = quote.regularMarketPrice;
+    const previousClose = quote.regularMarketPreviousClose || quote.previousClose;
+    const change = quote.regularMarketChange || (currentPrice - previousClose);
+    const changePercent = quote.regularMarketChangePercent || ((change / previousClose) * 100);
 
-      // Get recent history for trend
-      const closes = quotes.close.filter(c => c !== null);
-      const highs = quotes.high.filter(h => h !== null);
-      const lows = quotes.low.filter(l => l !== null);
-
-      return {
-        price: currentPrice,
-        previousClose,
-        change,
-        changePercent,
-        dayHigh: Math.max(...highs),
-        dayLow: Math.min(...lows),
-        volume: meta.regularMarketVolume,
-        marketState: meta.marketState,
-        timestamp: new Date(meta.regularMarketTime * 1000).toISOString(),
-        history: closes.slice(-5)
-      };
-    } catch (error) {
-      // Try next endpoint
-      continue;
+    // Extract history closes
+    let closes = [];
+    if (history && history.quotes) {
+      closes = history.quotes
+        .filter(q => q.close !== null)
+        .map(q => q.close)
+        .slice(-5);
     }
-  }
 
-  console.error(`[MarketData] Failed to fetch ${symbol} from all endpoints`);
-  return null;
+    return {
+      price: currentPrice,
+      previousClose,
+      change,
+      changePercent,
+      dayHigh: quote.regularMarketDayHigh,
+      dayLow: quote.regularMarketDayLow,
+      volume: quote.regularMarketVolume,
+      marketState: quote.marketState,
+      timestamp: quote.regularMarketTime ? new Date(quote.regularMarketTime).toISOString() : new Date().toISOString(),
+      history: closes.length > 0 ? closes : [previousClose, currentPrice]
+    };
+  } catch (error) {
+    console.error(`[MarketData] Failed to fetch ${symbol}:`, error.message);
+    return null;
+  }
 }
 
 function determineTrend(history) {
