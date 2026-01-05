@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Repeat2, Heart, Share, ExternalLink, MoreHorizontal, Check, Bookmark, BookmarkCheck } from 'lucide-react';
+import { MessageCircle, Heart, Share, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 
 // Get liked items from localStorage
@@ -74,8 +74,6 @@ function formatDate(dateStr) {
 // Tweet-like news item component
 function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
   const [imgError, setImgError] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [shared, setShared] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likedItems[item.id];
 
@@ -88,18 +86,6 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
   const handleLike = (e) => {
     e.stopPropagation();
     onLike(item.id);
-  };
-
-  const handleRetweet = async (e) => {
-    e.stopPropagation();
-    const text = `${item.title}\n\n${item.link}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
   };
 
   const handleShare = async (e) => {
@@ -117,11 +103,9 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
         }
       }
     } else {
-      // Fallback: copy link
+      // Fallback: copy link to clipboard
       try {
         await navigator.clipboard.writeText(item.link);
-        setShared(true);
-        setTimeout(() => setShared(false), 2000);
       } catch (err) {
         console.error('Failed to copy:', err);
       }
@@ -133,9 +117,9 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
     onBookmark(item);
   };
 
-  const handleComment = (e) => {
+  const handleReply = (e) => {
     e.stopPropagation();
-    // Open source to comment/read more
+    // Open the post page (source article)
     if (item.link) {
       window.open(item.link, '_blank', 'noopener,noreferrer');
     }
@@ -225,26 +209,15 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center justify-between mt-3 max-w-[400px]" onClick={(e) => e.stopPropagation()}>
-            {/* Comment - opens source */}
+          <div className="flex items-center gap-8 mt-3" onClick={(e) => e.stopPropagation()}>
+            {/* Reply - opens post page */}
             <button
-              onClick={handleComment}
+              onClick={handleReply}
               className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group"
-              title="Read more"
+              title="Reply"
             >
               <div className="p-2 rounded-full group-hover:bg-blue-400/10 -ml-2">
                 <MessageCircle className="w-[18px] h-[18px]" />
-              </div>
-            </button>
-
-            {/* Retweet - copy to clipboard */}
-            <button
-              onClick={handleRetweet}
-              className={`flex items-center gap-1 transition-colors group ${copied ? 'text-green-400' : 'text-gray-500 hover:text-green-400'}`}
-              title={copied ? 'Copied!' : 'Copy to clipboard'}
-            >
-              <div className="p-2 rounded-full group-hover:bg-green-400/10">
-                {copied ? <Check className="w-[18px] h-[18px]" /> : <Repeat2 className="w-[18px] h-[18px]" />}
               </div>
             </button>
 
@@ -262,11 +235,11 @@ function NewsItem({ item, likedItems, onLike, onBookmark, isBookmarked }) {
             {/* Share */}
             <button
               onClick={handleShare}
-              className={`flex items-center gap-1 transition-colors group ${shared ? 'text-blue-400' : 'text-gray-500 hover:text-blue-400'}`}
-              title={shared ? 'Link copied!' : 'Share'}
+              className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors group"
+              title="Share"
             >
               <div className="p-2 rounded-full group-hover:bg-blue-400/10">
-                {shared ? <Check className="w-[18px] h-[18px]" /> : <Share className="w-[18px] h-[18px]" />}
+                <Share className="w-[18px] h-[18px]" />
               </div>
             </button>
           </div>
