@@ -21,6 +21,9 @@ export const useStore = create((set, get) => ({
   // Watchlist
   watchlist: JSON.parse(localStorage.getItem('watchlist') || '[]'),
 
+  // Comments
+  comments: JSON.parse(localStorage.getItem('comments') || '{}'),
+
   // Alerts
   alerts: [],
 
@@ -91,6 +94,38 @@ export const useStore = create((set, get) => ({
 
   isInWatchlist: (itemId) => {
     return get().watchlist.some(i => i.id === itemId);
+  },
+
+  // Comment management
+  addComment: (postId, comment) => {
+    const comments = { ...get().comments };
+    if (!comments[postId]) {
+      comments[postId] = [];
+    }
+    comments[postId] = [
+      {
+        id: Date.now().toString(),
+        text: comment.text,
+        author: comment.author || 'Anonymous',
+        timestamp: new Date().toISOString()
+      },
+      ...comments[postId]
+    ];
+    localStorage.setItem('comments', JSON.stringify(comments));
+    set({ comments });
+  },
+
+  getComments: (postId) => {
+    return get().comments[postId] || [];
+  },
+
+  deleteComment: (postId, commentId) => {
+    const comments = { ...get().comments };
+    if (comments[postId]) {
+      comments[postId] = comments[postId].filter(c => c.id !== commentId);
+      localStorage.setItem('comments', JSON.stringify(comments));
+      set({ comments });
+    }
   },
 
   // Alert management

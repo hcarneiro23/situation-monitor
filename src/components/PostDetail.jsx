@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck } from 'lucide-react';
+import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, Trash2, User } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 
 // Get liked items from localStorage
 function getLikedItems() {
@@ -89,12 +90,15 @@ function formatFullDate(dateStr) {
 function PostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
+  const { user } = useAuth();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, addComment, getComments, deleteComment, comments } = useStore();
   const [imgError, setImgError] = useState(false);
   const [likedItems, setLikedItemsState] = useState(getLikedItems);
+  const [replyText, setReplyText] = useState('');
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
+  const postComments = comments[postId] || [];
 
   if (!post) {
     return (
@@ -174,6 +178,21 @@ function PostDetail() {
         data: post
       });
     }
+  };
+
+  const handleSubmitReply = (e) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+
+    addComment(post.id, {
+      text: replyText.trim(),
+      author: user?.displayName || user?.email || 'Anonymous'
+    });
+    setReplyText('');
+  };
+
+  const handleDeleteComment = (commentId) => {
+    deleteComment(post.id, commentId);
   };
 
   return (
@@ -290,6 +309,82 @@ function PostDetail() {
               <Share className="w-5 h-5" />
               <span className="text-sm">Share</span>
             </button>
+          </div>
+
+          {/* Reply input section */}
+          <div className="py-3 border-b border-intel-700">
+            <form onSubmit={handleSubmitReply} className="flex gap-3">
+              {/* User avatar */}
+              <div className="flex-shrink-0">
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
+                    <User className="w-5 h-5 text-gray-400" />
+                  </div>
+                )}
+              </div>
+
+              {/* Reply input */}
+              <div className="flex-1">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Post your reply"
+                  className="w-full bg-transparent text-white placeholder-gray-500 text-[15px] resize-none outline-none min-h-[60px]"
+                  rows={2}
+                />
+                <div className="flex justify-end mt-2">
+                  <button
+                    type="submit"
+                    disabled={!replyText.trim()}
+                    className="px-4 py-1.5 bg-blue-500 text-white font-bold text-sm rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Reply
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Comments section */}
+          <div>
+            {postComments.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                <p>No replies yet</p>
+                <p className="text-sm mt-1">Be the first to reply</p>
+              </div>
+            ) : (
+              postComments.map((comment) => (
+                <div key={comment.id} className="py-3 border-b border-intel-700">
+                  <div className="flex gap-3">
+                    {/* Comment author avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
+                        <User className="w-5 h-5 text-gray-400" />
+                      </div>
+                    </div>
+
+                    {/* Comment content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">{comment.author}</span>
+                        <span className="text-gray-500 text-sm">·</span>
+                        <span className="text-gray-500 text-sm">{formatDate(comment.timestamp)}</span>
+                        <button
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="ml-auto p-1 rounded-full hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
+                          title="Delete reply"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <p className="text-[15px] text-white mt-1">{comment.text}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </article>
       </div>
