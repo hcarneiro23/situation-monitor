@@ -18,23 +18,62 @@ const RSS_SOURCES = [
   { url: 'https://feeds.reuters.com/reuters/businessNews', source: 'Reuters', category: 'business' },
   { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', source: 'BBC', category: 'world' },
   { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', source: 'BBC', category: 'business' },
+  { url: 'https://rss.app/feeds/v1.1/apnews.com.xml', source: 'AP News', category: 'world' },
 
   // Financial & Economic
   { url: 'https://feeds.bloomberg.com/markets/news.rss', source: 'Bloomberg', category: 'markets' },
   { url: 'https://www.ft.com/rss/home', source: 'Financial Times', category: 'business' },
   { url: 'https://feeds.marketwatch.com/marketwatch/topstories/', source: 'MarketWatch', category: 'markets' },
+  { url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', source: 'CNBC', category: 'markets' },
+  { url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html', source: 'CNBC', category: 'economy' },
+  { url: 'https://finance.yahoo.com/news/rssindex', source: 'Yahoo Finance', category: 'markets' },
+  { url: 'https://www.economist.com/finance-and-economics/rss.xml', source: 'Economist', category: 'economy' },
+  { url: 'https://www.economist.com/international/rss.xml', source: 'Economist', category: 'world' },
+  { url: 'https://feeds.wsj.com/xml/rss/3_7085.xml', source: 'WSJ', category: 'world' },
+  { url: 'https://feeds.wsj.com/xml/rss/3_7014.xml', source: 'WSJ', category: 'markets' },
 
   // Geopolitical Focus
   { url: 'https://www.aljazeera.com/xml/rss/all.xml', source: 'Al Jazeera', category: 'world' },
   { url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', source: 'NYT', category: 'world' },
   { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', source: 'NYT', category: 'politics' },
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', source: 'NYT', category: 'business' },
+  { url: 'https://www.theguardian.com/world/rss', source: 'Guardian', category: 'world' },
+  { url: 'https://www.politico.com/rss/politicopicks.xml', source: 'Politico', category: 'politics' },
+  { url: 'https://www.politico.eu/feed/', source: 'Politico EU', category: 'europe' },
 
   // Policy & Think Tanks
   { url: 'https://www.brookings.edu/feed/', source: 'Brookings', category: 'policy' },
   { url: 'https://foreignpolicy.com/feed/', source: 'Foreign Policy', category: 'geopolitics' },
+  { url: 'https://www.cfr.org/rss.xml', source: 'CFR', category: 'geopolitics' },
+  { url: 'https://www.csis.org/feeds/all', source: 'CSIS', category: 'security' },
+  { url: 'https://warontherocks.com/feed/', source: 'War on the Rocks', category: 'security' },
+  { url: 'https://carnegieendowment.org/rss/solr/?fa=experts', source: 'Carnegie', category: 'policy' },
+  { url: 'https://www.atlanticcouncil.org/feed/', source: 'Atlantic Council', category: 'geopolitics' },
 
-  // Commodities & Trade
+  // Regional - Asia
+  { url: 'https://www.scmp.com/rss/91/feed', source: 'SCMP', category: 'asia' },
+  { url: 'https://asia.nikkei.com/rss/feed/nar', source: 'Nikkei Asia', category: 'asia' },
+  { url: 'https://www.japantimes.co.jp/feed/', source: 'Japan Times', category: 'asia' },
+  { url: 'https://www.straitstimes.com/news/world/rss.xml', source: 'Straits Times', category: 'asia' },
+
+  // Regional - Europe & Middle East
+  { url: 'https://www.dw.com/en/top-stories/rss-12229', source: 'DW', category: 'europe' },
+  { url: 'https://www.france24.com/en/rss', source: 'France24', category: 'europe' },
+  { url: 'https://www.middleeasteye.net/rss', source: 'Middle East Eye', category: 'middle_east' },
+  { url: 'https://www.timesofisrael.com/feed/', source: 'Times of Israel', category: 'middle_east' },
+
+  // Commodities & Energy
   { url: 'https://oilprice.com/rss/main', source: 'OilPrice', category: 'commodities' },
+  { url: 'https://www.spglobal.com/commodityinsights/en/rss-feed/commodities', source: 'S&P Global', category: 'commodities' },
+  { url: 'https://www.mining.com/feed/', source: 'Mining.com', category: 'commodities' },
+
+  // Defense & Security
+  { url: 'https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml', source: 'Defense News', category: 'defense' },
+  { url: 'https://breakingdefense.com/feed/', source: 'Breaking Defense', category: 'defense' },
+  { url: 'https://www.janes.com/feeds/news', source: 'Janes', category: 'defense' },
+
+  // Central Banks & Monetary
+  { url: 'https://www.centralbanking.com/rss', source: 'Central Banking', category: 'monetary' },
 ];
 
 // Keywords for market relevance scoring
