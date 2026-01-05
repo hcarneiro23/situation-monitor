@@ -56,14 +56,26 @@ function ScenarioWorkspace() {
                   expandedScenario === scenario.id ? null : scenario.id
                 )}
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium text-white">{scenario.title}</h3>
-                    <span className="text-xs text-gray-500">({scenario.theme})</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-medium text-white">{scenario.theme}</h3>
+                    {scenario.newsCount && (
+                      <span className="px-1.5 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded">
+                        {scenario.newsCount} articles
+                      </span>
+                    )}
+                    {scenario.trendScore && scenario.trendScore > 10 && (
+                      <span className="px-1.5 py-0.5 text-xs bg-amber-500/20 text-amber-400 rounded">
+                        Trending
+                      </span>
+                    )}
                   </div>
+                  {scenario.title !== scenario.theme && (
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-1">{scenario.title}</p>
+                  )}
                 </div>
                 <ChevronRight
-                  className={`w-4 h-4 text-gray-400 transition-transform ${
+                  className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${
                     expandedScenario === scenario.id ? 'rotate-90' : ''
                   }`}
                 />
