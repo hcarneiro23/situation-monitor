@@ -241,8 +241,8 @@ function NewsFeed() {
         </div>
       )}
 
-      {/* News list */}
-      <div className="divide-y divide-intel-700 max-h-[600px] overflow-y-auto">
+      {/* News list - key forces re-render when sort/filter changes */}
+      <div key={`${sortOrder}-${filter}`} className="divide-y divide-intel-700 max-h-[600px] overflow-y-auto">
         {clusterView ? (
           // Clustered view
           Object.entries(clusteredNews).map(([cluster, items]) => (
@@ -251,9 +251,9 @@ function NewsFeed() {
                 <div className="px-4 py-2 bg-intel-700/50 text-xs font-medium text-gray-400 uppercase tracking-wide sticky top-0">
                   {cluster} ({items.length})
                 </div>
-                {items.slice(0, 5).map(item => (
+                {items.slice(0, 5).map((item, idx) => (
                   <NewsItem
-                    key={item.id}
+                    key={`${item.id}-${idx}`}
                     item={item}
                     expanded={expandedNews === item.id}
                     onToggle={() => setExpandedNews(expandedNews === item.id ? null : item.id)}
@@ -268,9 +268,9 @@ function NewsFeed() {
           ))
         ) : (
           // List view
-          filteredNews.slice(0, 50).map(item => (
+          filteredNews.slice(0, 50).map((item, idx) => (
             <NewsItem
-              key={item.id}
+              key={`${item.id}-${idx}`}
               item={item}
               expanded={expandedNews === item.id}
               onToggle={() => setExpandedNews(expandedNews === item.id ? null : item.id)}
