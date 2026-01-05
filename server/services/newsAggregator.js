@@ -6,8 +6,58 @@ const parser = new Parser({
   timeout: 10000,
   headers: {
     'User-Agent': 'Mozilla/5.0 (compatible; SituationMonitor/1.0)'
+  },
+  customFields: {
+    item: [
+      ['media:content', 'media'],
+      ['media:thumbnail', 'mediaThumbnail'],
+      ['enclosure', 'enclosure'],
+      ['content:encoded', 'contentEncoded'],
+    ]
   }
 });
+
+// Extract image URL from RSS item
+function extractImageUrl(item) {
+  // Try media:content
+  if (item.media && item.media.$) {
+    const url = item.media.$.url;
+    if (url && url.match(/\.(jpg|jpeg|png|gif|webp)/i)) {
+      return url;
+    }
+  }
+
+  // Try media:thumbnail
+  if (item.mediaThumbnail && item.mediaThumbnail.$) {
+    return item.mediaThumbnail.$.url;
+  }
+
+  // Try enclosure
+  if (item.enclosure && item.enclosure.url) {
+    const url = item.enclosure.url;
+    if (url && (item.enclosure.type?.startsWith('image/') || url.match(/\.(jpg|jpeg|png|gif|webp)/i))) {
+      return url;
+    }
+  }
+
+  // Try to extract from content:encoded
+  if (item.contentEncoded) {
+    const imgMatch = item.contentEncoded.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (imgMatch && imgMatch[1]) {
+      return imgMatch[1];
+    }
+  }
+
+  // Try to extract from content
+  if (item.content) {
+    const imgMatch = item.content.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (imgMatch && imgMatch[1]) {
+      return imgMatch[1];
+    }
+  }
+
+  return null;
+}
 
 const cache = new NodeCache({ stdTTL: 300 }); // 5 minute cache
 
@@ -611,6 +661,8 @@ export const newsAggregator = {
         scope: item.feedScope,
         feedRegion: item.feedRegion,
         cities: item.feedCities,
+        // Image from RSS feed
+        image: extractImageUrl(item),
       });
     }
 

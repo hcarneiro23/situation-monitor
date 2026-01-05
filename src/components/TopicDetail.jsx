@@ -125,7 +125,19 @@ function TopicDetail() {
                   <p className="text-[14px] text-gray-400 mt-1 line-clamp-2">{item.summary}</p>
                 )}
 
-                {item.link && (
+                {/* Article image */}
+                {item.image && (
+                  <div className="mt-3 rounded-2xl overflow-hidden border border-intel-600">
+                    <img
+                      src={item.image}
+                      alt=""
+                      className="w-full h-48 object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  </div>
+                )}
+
+                {!item.image && item.link && (
                   <div
                     className="mt-3 border border-intel-600 rounded-2xl overflow-hidden hover:bg-intel-700/30 transition-colors"
                     onClick={(e) => e.stopPropagation()}

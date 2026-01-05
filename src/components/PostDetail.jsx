@@ -426,6 +426,18 @@ function PostDetail() {
             <p className="text-[15px] text-gray-300 mt-3 leading-relaxed">{post.summary}</p>
           )}
 
+          {/* Article image */}
+          {post.image && (
+            <div className="mt-4 rounded-2xl overflow-hidden border border-intel-600">
+              <img
+                src={post.image}
+                alt=""
+                className="w-full max-h-80 object-cover"
+                onError={(e) => { e.target.parentElement.style.display = 'none'; }}
+              />
+            </div>
+          )}
+
           {/* Link preview card */}
           {post.link && (
             <a
