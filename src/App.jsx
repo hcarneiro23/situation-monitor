@@ -4,7 +4,7 @@ import Header from './components/Header';
 import WhatMattersNow from './components/WhatMattersNow';
 import NewsFeed from './components/NewsFeed';
 import SignalPanel from './components/SignalPanel';
-import RelationshipMap from './components/RelationshipMap';
+import PoliticalMarketOverlay from './components/PoliticalMarketOverlay';
 import MarketPanels from './components/MarketPanels';
 import ScenarioWorkspace from './components/ScenarioWorkspace';
 import CatalystTimeline from './components/CatalystTimeline';
@@ -166,9 +166,9 @@ function App() {
           </div>
         </section>
 
-        {/* Section 4: Relationship Map */}
-        <section id="relationships">
-          <RelationshipMap />
+        {/* Section 4: Political → Market Overlay */}
+        <section id="political-market">
+          <PoliticalMarketOverlay />
         </section>
 
         {/* Section 5: Market Context Panels */}
