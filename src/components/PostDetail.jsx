@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, Trash2, User } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
+import { commentsService } from '../services/comments';
 
 // Get liked items from localStorage
 function getLikedItems() {
@@ -91,14 +92,26 @@ function PostDetail() {
   const { postId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, addComment, getComments, deleteComment, comments } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist } = useStore();
   const [imgError, setImgError] = useState(false);
   const [likedItems, setLikedItemsState] = useState(getLikedItems);
   const [replyText, setReplyText] = useState('');
+  const [postComments, setPostComments] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
-  const postComments = comments[postId] || [];
+
+  // Subscribe to comments from Firestore
+  useEffect(() => {
+    if (!postId) return;
+
+    const unsubscribe = commentsService.subscribeToComments(postId, (comments) => {
+      setPostComments(comments);
+    });
+
+    return () => unsubscribe();
+  }, [postId]);
 
   if (!post) {
     return (
@@ -181,19 +194,31 @@ function PostDetail() {
     }
   };
 
-  const handleSubmitReply = (e) => {
+  const handleSubmitReply = async (e) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || submitting) return;
 
-    addComment(post.id, {
-      text: replyText.trim(),
-      author: user?.displayName || user?.email || 'Anonymous'
-    });
-    setReplyText('');
+    setSubmitting(true);
+    try {
+      await commentsService.addComment(post.id, {
+        text: replyText.trim(),
+        author: user?.displayName || user?.email || 'Anonymous',
+        authorId: user?.uid || null
+      });
+      setReplyText('');
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDeleteComment = (commentId) => {
-    deleteComment(post.id, commentId);
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await commentsService.deleteComment(commentId);
+    } catch (err) {
+      console.error('Failed to delete comment:', err);
+    }
   };
 
   return (
@@ -338,10 +363,10 @@ function PostDetail() {
                 <div className="flex justify-end mt-2">
                   <button
                     type="submit"
-                    disabled={!replyText.trim()}
+                    disabled={!replyText.trim() || submitting}
                     className="px-4 py-1.5 bg-blue-500 text-white font-bold text-sm rounded-full hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Reply
+                    {submitting ? 'Posting...' : 'Reply'}
                   </button>
                 </div>
               </div>
@@ -371,14 +396,16 @@ function PostDetail() {
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-white text-sm">{comment.author}</span>
                         <span className="text-gray-500 text-sm">·</span>
-                        <span className="text-gray-500 text-sm">{formatDate(comment.timestamp)}</span>
-                        <button
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="ml-auto p-1 rounded-full hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
-                          title="Delete reply"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <span className="text-gray-500 text-sm">{formatDate(comment.createdAt)}</span>
+                        {user?.uid === comment.authorId && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="ml-auto p-1 rounded-full hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
+                            title="Delete reply"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                       <p className="text-[15px] text-white mt-1">{comment.text}</p>
                     </div>
