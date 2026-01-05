@@ -321,7 +321,7 @@ function NewsFeed() {
     }
   };
 
-  // Handle bookmark toggle
+  // Handle bookmark toggle (track post)
   const handleBookmark = (item) => {
     if (isInWatchlist(item.id)) {
       removeFromWatchlist(item.id);
@@ -329,7 +329,7 @@ function NewsFeed() {
       addToWatchlist({
         id: item.id,
         type: 'news',
-        name: item.title.slice(0, 50),
+        name: item.title,
         data: item
       });
     }
