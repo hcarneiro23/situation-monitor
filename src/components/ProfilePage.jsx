@@ -81,51 +81,53 @@ function ProfilePage() {
   const unreadAlerts = alerts?.filter(a => !a.read).length || 0;
 
   return (
-    <div className="min-h-screen bg-intel-900 pb-16">
+    <div className="min-h-screen bg-intel-900 pb-16 lg:pb-0">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
-        <div className="flex items-center gap-3 px-4 py-3">
+        <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <button
             onClick={() => navigate(-1)}
             className="p-2 rounded-full hover:bg-intel-700 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-white" />
           </button>
-          <h1 className="text-xl font-bold text-white">Profile</h1>
+          <h1 className="text-xl font-bold text-white">Settings</h1>
         </div>
       </div>
 
-      {/* User info */}
-      <div className="px-4 py-6 border-b border-intel-700">
-        <div className="flex items-center gap-4">
-          {user?.photoURL ? (
-            <img src={user.photoURL} alt="" className="w-16 h-16 rounded-full" />
-          ) : (
-            <div className="w-16 h-16 rounded-full bg-intel-700 flex items-center justify-center">
-              <User className="w-8 h-8 text-gray-400" />
+      {/* Content container */}
+      <div className="max-w-2xl mx-auto">
+        {/* User info */}
+        <div className="px-4 py-6 border-b border-intel-700">
+          <div className="flex items-center gap-4">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="" className="w-16 h-16 rounded-full" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-intel-700 flex items-center justify-center">
+                <User className="w-8 h-8 text-gray-400" />
+              </div>
+            )}
+            <div>
+              <p className="text-white font-medium text-lg">{user?.displayName || 'User'}</p>
+              <p className="text-gray-500 text-sm">{user?.email}</p>
             </div>
-          )}
-          <div>
-            <p className="text-white font-medium text-lg">{user?.displayName || 'User'}</p>
-            <p className="text-gray-500 text-sm">{user?.email}</p>
           </div>
         </div>
-      </div>
 
-      {/* Stats */}
-      <div className="flex border-b border-intel-700">
-        <div className="flex-1 py-4 text-center border-r border-intel-700">
-          <p className="text-white font-bold text-xl">{watchlist?.length || 0}</p>
-          <p className="text-gray-500 text-sm">Tracking</p>
+        {/* Stats */}
+        <div className="flex border-b border-intel-700">
+          <div className="flex-1 py-4 text-center border-r border-intel-700">
+            <p className="text-white font-bold text-xl">{watchlist?.length || 0}</p>
+            <p className="text-gray-500 text-sm">Tracking</p>
+          </div>
+          <div className="flex-1 py-4 text-center">
+            <p className="text-white font-bold text-xl">{unreadAlerts}</p>
+            <p className="text-gray-500 text-sm">Alerts</p>
+          </div>
         </div>
-        <div className="flex-1 py-4 text-center">
-          <p className="text-white font-bold text-xl">{unreadAlerts}</p>
-          <p className="text-gray-500 text-sm">Alerts</p>
-        </div>
-      </div>
 
-      {/* Settings */}
-      <div className="py-2">
+        {/* Settings */}
+        <div className="py-2">
         {/* Location */}
         <button
           onClick={() => setShowLocationPicker(!showLocationPicker)}
@@ -295,6 +297,7 @@ function ProfilePage() {
           <LogOut className="w-5 h-5 text-red-400" />
           <span className="text-red-400">Sign out</span>
         </button>
+        </div>
       </div>
     </div>
   );
