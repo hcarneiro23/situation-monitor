@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { userPreferencesService } from '../services/userPreferences';
 
 export const useStore = create((set, get) => ({
   // Data state
@@ -18,11 +19,15 @@ export const useStore = create((set, get) => ({
   selectedRegion: null,
   expandedNews: null,
 
-  // User preferences (from onboarding)
-  userCity: localStorage.getItem('userCity') || null,
-  userInterests: JSON.parse(localStorage.getItem('userInterests') || '[]'),
-  followedSources: JSON.parse(localStorage.getItem('followedSources') || '[]'),
-  onboardingCompleted: localStorage.getItem('onboardingCompleted') === 'true',
+  // Current user ID for preference storage
+  currentUserId: null,
+  preferencesLoading: true,
+
+  // User preferences (from Firestore per user)
+  userCity: null,
+  userInterests: [],
+  followedSources: [],
+  onboardingCompleted: false,
   availableCities: [],
 
   // Watchlist
@@ -49,33 +54,100 @@ export const useStore = create((set, get) => ({
   setConnected: (isConnected) => set({ isConnected }),
   setLastUpdate: (lastUpdate) => set({ lastUpdate }),
 
-  // User preferences (onboarding)
-  setUserCity: (city) => {
-    if (city) {
-      localStorage.setItem('userCity', city);
-    } else {
-      localStorage.removeItem('userCity');
+  // Load user preferences from Firestore
+  loadUserPreferences: async (userId) => {
+    if (!userId) {
+      set({
+        currentUserId: null,
+        userCity: null,
+        userInterests: [],
+        followedSources: [],
+        onboardingCompleted: false,
+        preferencesLoading: false
+      });
+      return;
     }
+
+    set({ currentUserId: userId, preferencesLoading: true });
+
+    try {
+      const prefs = await userPreferencesService.getPreferences(userId);
+      if (prefs) {
+        set({
+          userCity: prefs.userCity || null,
+          userInterests: prefs.userInterests || [],
+          followedSources: prefs.followedSources || [],
+          onboardingCompleted: prefs.onboardingCompleted || false,
+          preferencesLoading: false
+        });
+      } else {
+        // New user - no preferences yet
+        set({
+          userCity: null,
+          userInterests: [],
+          followedSources: [],
+          onboardingCompleted: false,
+          preferencesLoading: false
+        });
+      }
+    } catch (error) {
+      console.error('[Store] Error loading preferences:', error);
+      set({ preferencesLoading: false });
+    }
+  },
+
+  // Clear preferences on logout
+  clearUserPreferences: () => {
+    set({
+      currentUserId: null,
+      userCity: null,
+      userInterests: [],
+      followedSources: [],
+      onboardingCompleted: false,
+      preferencesLoading: false
+    });
+  },
+
+  // User preferences (onboarding) - saves to Firestore
+  setUserCity: (city) => {
+    const userId = get().currentUserId;
     set({ userCity: city });
+    if (userId) {
+      userPreferencesService.saveCity(userId, city);
+    }
   },
   setUserInterests: (interests) => {
-    localStorage.setItem('userInterests', JSON.stringify(interests));
+    const userId = get().currentUserId;
     set({ userInterests: interests });
+    if (userId) {
+      userPreferencesService.saveInterests(userId, interests);
+    }
   },
   setFollowedSources: (sources) => {
-    localStorage.setItem('followedSources', JSON.stringify(sources));
+    const userId = get().currentUserId;
     set({ followedSources: sources });
+    if (userId) {
+      userPreferencesService.saveFollowedSources(userId, sources);
+    }
   },
   setOnboardingCompleted: (completed) => {
-    localStorage.setItem('onboardingCompleted', completed ? 'true' : 'false');
+    const userId = get().currentUserId;
     set({ onboardingCompleted: completed });
+    if (userId) {
+      userPreferencesService.saveOnboardingCompleted(userId, completed);
+    }
   },
   resetOnboarding: () => {
-    localStorage.removeItem('userCity');
-    localStorage.removeItem('userInterests');
-    localStorage.removeItem('followedSources');
-    localStorage.removeItem('onboardingCompleted');
+    const userId = get().currentUserId;
     set({ userCity: null, userInterests: [], followedSources: [], onboardingCompleted: false });
+    if (userId) {
+      userPreferencesService.savePreferences(userId, {
+        userCity: null,
+        userInterests: [],
+        followedSources: [],
+        onboardingCompleted: false
+      });
+    }
   },
   setAvailableCities: (cities) => set({ availableCities: cities }),
 

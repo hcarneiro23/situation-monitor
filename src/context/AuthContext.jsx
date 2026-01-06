@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
+import { useStore } from '../store/useStore';
 
 const AuthContext = createContext(null);
 
@@ -22,15 +23,25 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const loadUserPreferences = useStore(state => state.loadUserPreferences);
+  const clearUserPreferences = useStore(state => state.clearUserPreferences);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+
+      // Load user-specific preferences from Firestore
+      if (user) {
+        await loadUserPreferences(user.uid);
+      } else {
+        clearUserPreferences();
+      }
+
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [loadUserPreferences, clearUserPreferences]);
 
   const signIn = async (email, password) => {
     setError(null);
@@ -68,6 +79,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     setError(null);
     try {
+      clearUserPreferences();
       await firebaseSignOut(auth);
     } catch (err) {
       setError(getErrorMessage(err.code));
