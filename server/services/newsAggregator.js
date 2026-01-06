@@ -347,7 +347,6 @@ const RSS_SOURCES = [
 
   // Brazil - Local City News
   { url: 'https://jornaldebrasilia.com.br/feed', source: 'Jornal de Brasília', category: 'local', scope: SCOPE_LOCAL, cities: ['brasilia', 'brasília', 'distrito federal', 'df'] },
-  { url: 'https://campograndenews.com.br/rss/', source: 'Campo Grande News', category: 'local', scope: SCOPE_LOCAL, cities: ['campo grande'] },
   { url: 'https://feeds.brazilnews.net/rss/2445.xml', source: 'Brazil News', category: 'local', scope: SCOPE_LOCAL, cities: ['sao paulo', 'são paulo', 'rio de janeiro', 'rio'] },
 
   // ============================================
