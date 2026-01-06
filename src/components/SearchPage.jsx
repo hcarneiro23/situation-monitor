@@ -40,10 +40,13 @@ function SearchPage() {
     setImgErrors({}); // Clear image errors on new search
   };
 
-  const results = useMemo(() => {
-    if (!query.trim() || query.length < 2) return [];
+  const trimmedQuery = query.trim();
 
-    const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 0);
+  const results = useMemo(() => {
+    if (trimmedQuery.length < 2) return [];
+
+    const searchTerms = trimmedQuery.toLowerCase().split(' ').filter(t => t.length > 0);
+    if (searchTerms.length === 0) return [];
 
     return news
       .filter(item => {
@@ -52,7 +55,7 @@ function SearchPage() {
       })
       .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
       .slice(0, 50);
-  }, [news, query]);
+  }, [news, trimmedQuery]);
 
   const handleItemClick = (itemId) => {
     navigate(`/post/${itemId}`);
@@ -85,7 +88,7 @@ function SearchPage() {
 
       {/* Results */}
       <div className="divide-y divide-intel-700">
-        {query.length < 2 ? (
+        {trimmedQuery.length < 2 ? (
           <div className="p-8 text-center text-gray-500">
             <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>Search for news articles</p>
@@ -93,7 +96,7 @@ function SearchPage() {
           </div>
         ) : results.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <p>No results found for "{query}"</p>
+            <p>No results found for "{trimmedQuery}"</p>
             <p className="text-sm mt-1">Try different keywords</p>
           </div>
         ) : (
