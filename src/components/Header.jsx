@@ -35,7 +35,9 @@ function Header() {
   };
 
   const handleLogoClick = () => {
-    const isAtTop = window.scrollY < 50;
+    const feedContainer = document.getElementById('news-feed-scroll');
+    const scrollTop = feedContainer ? feedContainer.scrollTop : window.scrollY;
+    const isAtTop = scrollTop < 50;
 
     if (location.pathname === '/' && isAtTop && readyToRefreshRef.current) {
       // Second click while at top - refresh the page
@@ -43,7 +45,11 @@ function Header() {
       window.location.reload();
     } else if (location.pathname === '/') {
       // First click or not at top - scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (feedContainer) {
+        feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       readyToRefreshRef.current = true;
     } else {
       // Not on home page - navigate to home
