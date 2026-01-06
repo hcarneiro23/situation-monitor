@@ -580,20 +580,14 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
-  // Track previously seen posts to avoid repeats in first 30 positions
-  // Store with timestamps, expire after 24 hours
+  // Track posts from LAST SESSION only (not cumulative)
+  // This ensures different posts on each refresh
   const [seenPostIds] = useState(() => {
-    const stored = localStorage.getItem('seenPostIdsWithTime');
+    const stored = localStorage.getItem('lastSessionPosts');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        const now = Date.now();
-        const twentyFourHours = 24 * 60 * 60 * 1000;
-        // Filter out expired entries (older than 24 hours)
-        const valid = Object.entries(parsed)
-          .filter(([, timestamp]) => now - timestamp < twentyFourHours)
-          .map(([id]) => id);
-        return new Set(valid);
+        return new Set(parsed);
       } catch (e) {
         return new Set();
       }
@@ -987,35 +981,19 @@ function NewsFeed() {
   const hasMore = displayCount < sortedNews.length;
 
   // Mark first 30 displayed posts as seen (once per session)
+  // REPLACES previous session's posts (not cumulative)
   useEffect(() => {
     if (hasMarkedSeen.current || sortedNews.length === 0) return;
 
-    // Get first 30 post IDs to mark as seen
+    // Get first 30 post IDs from THIS session
     const postsToMark = sortedNews.slice(0, 30).map(item => item.id);
-    const now = Date.now();
 
-    // Add to seen set
+    // Add to in-memory set for this session
     postsToMark.forEach(id => seenPostIds.add(id));
 
-    // Load existing timestamps and add new ones
-    let existingData = {};
-    try {
-      existingData = JSON.parse(localStorage.getItem('seenPostIdsWithTime') || '{}');
-    } catch (e) {}
-
-    // Add new posts with current timestamp
-    postsToMark.forEach(id => {
-      existingData[id] = now;
-    });
-
-    // Keep only last 500 entries and remove expired ones
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    const entries = Object.entries(existingData)
-      .filter(([, timestamp]) => now - timestamp < twentyFourHours)
-      .sort((a, b) => b[1] - a[1]) // Sort by timestamp, newest first
-      .slice(0, 500);
-
-    localStorage.setItem('seenPostIdsWithTime', JSON.stringify(Object.fromEntries(entries)));
+    // REPLACE localStorage with only THIS session's posts
+    // Next refresh will avoid these specific posts
+    localStorage.setItem('lastSessionPosts', JSON.stringify(postsToMark));
 
     hasMarkedSeen.current = true;
   }, [sortedNews, seenPostIds]);
