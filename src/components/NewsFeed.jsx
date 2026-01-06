@@ -630,8 +630,13 @@ function NewsFeed() {
     // Add all current news to shown set
     setShownNewsIds(new Set(news.map(item => item.id)));
     setNewArticlesCount(0);
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Scroll to top - use the feed scroll container, not window
+    const feedContainer = document.getElementById('news-feed-scroll');
+    if (feedContainer) {
+      feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Filter news based on active tab (only show "shown" articles)
@@ -1096,7 +1101,12 @@ function NewsFeed() {
       {newArticlesCount > 0 && (
         <button
           onClick={handleShowNewArticles}
-          className="w-full py-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-medium text-sm border-b border-intel-700 transition-colors"
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            handleShowNewArticles();
+          }}
+          className="w-full py-3 bg-blue-500/10 hover:bg-blue-500/20 active:bg-blue-500/30 text-blue-400 font-medium text-sm border-b border-intel-700 transition-colors cursor-pointer select-none"
+          style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
         >
           Show {newArticlesCount} new {newArticlesCount === 1 ? 'post' : 'posts'}
         </button>
