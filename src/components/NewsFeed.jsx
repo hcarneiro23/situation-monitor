@@ -302,15 +302,14 @@ const STOP_WORDS = new Set([
 
 // Check if a word looks like a valid word (has vowels, proper length)
 function isValidTrendingWord(word) {
-  if (word.length < 4) return false;
+  if (word.length < 3) return false;
   if (word.length > 20) return false;
   if (/^\d+$/.test(word)) return false;
   if (!/[aeiouáéíóúàèìòùâêîôûãõäëïöü]/i.test(word)) return false;
-  if (/^[^aeiouáéíóúàèìòùâêîôûãõäëïöü]{4,}$/i.test(word)) return false;
   return true;
 }
 
-// Extract trending phrases from news (phrases appearing in 3+ articles)
+// Extract trending phrases from news (phrases appearing in 2+ articles)
 function extractTrendingPhrases(newsItems) {
   if (!newsItems || newsItems.length === 0) return [];
 
@@ -321,7 +320,7 @@ function extractTrendingPhrases(newsItems) {
       .toLowerCase()
       .replace(/[^\w\s\u00C0-\u024F'-]/g, ' ')
       .split(/\s+/)
-      .filter(word => word.length >= 4 && !/^\d+$/.test(word));
+      .filter(word => word.length >= 3 && !/^\d+$/.test(word));
 
     for (let i = 0; i < titleWords.length - 1; i++) {
       const w1 = titleWords[i];
@@ -329,25 +328,14 @@ function extractTrendingPhrases(newsItems) {
 
       if (STOP_WORDS.has(w1) || STOP_WORDS.has(w2)) continue;
       if (!isValidTrendingWord(w1) || !isValidTrendingWord(w2)) continue;
-      if (!w1.length >= 5 && !w2.length >= 5) continue;
 
       const phrase = `${w1} ${w2}`;
-      const text = `${item.title} ${item.summary || ''}`.toLowerCase();
-      const words = phrase.split(' ');
-
-      const allWordsPresent = words.every(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'i');
-        return regex.test(text);
-      });
-
-      if (allWordsPresent) {
-        phraseCounts.set(phrase, (phraseCounts.get(phrase) || 0) + 1);
-      }
+      phraseCounts.set(phrase, (phraseCounts.get(phrase) || 0) + 1);
     }
   });
 
   return Array.from(phraseCounts.entries())
-    .filter(([, count]) => count >= 3)
+    .filter(([, count]) => count >= 2)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 20)
     .map(([phrase, count]) => ({ phrase, count }));
