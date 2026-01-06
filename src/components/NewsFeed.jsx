@@ -277,24 +277,31 @@ function NewsFeed() {
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
-  const [lastSeenTimestamp] = useState(() => {
-    // Get last seen timestamp, then immediately update it to now
-    const lastSeen = localStorage.getItem('lastSeenNewsTimestamp') || '0';
-    localStorage.setItem('lastSeenNewsTimestamp', Date.now().toString());
-    return lastSeen;
+  const [seenPostIds] = useState(() => {
+    // Get previously seen post IDs
+    const seen = JSON.parse(localStorage.getItem('seenPostIds') || '[]');
+    return new Set(seen);
   });
   const loaderRef = useRef(null);
 
   // Filter news based on user's selected location
   const filteredNews = getNewsByUserLocation();
 
-  // Check if a post is new (posted after last visit)
+  // Check if a post is new (user hasn't seen it before)
   const isNewPost = (item) => {
-    if (!lastSeenTimestamp || lastSeenTimestamp === '0') return false;
-    const lastSeen = parseInt(lastSeenTimestamp);
-    const itemTime = new Date(item.pubDate).getTime() || 0;
-    return itemTime > lastSeen;
+    return !seenPostIds.has(item.id);
   };
+
+  // Mark displayed posts as seen
+  useEffect(() => {
+    if (filteredNews.length > 0) {
+      const currentIds = filteredNews.slice(0, displayCount).map(item => item.id);
+      const allSeen = [...seenPostIds, ...currentIds];
+      // Keep only last 500 IDs to prevent localStorage bloat
+      const trimmed = [...new Set(allSeen)].slice(-500);
+      localStorage.setItem('seenPostIds', JSON.stringify(trimmed));
+    }
+  }, [filteredNews, displayCount]);
 
   // Subscribe to all likes
   useEffect(() => {
