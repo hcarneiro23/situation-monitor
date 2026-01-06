@@ -340,8 +340,16 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Sort by date (newest first)
+  // Sort: unseen posts first, then by date (newest first)
   const sortedNews = [...filteredNews].sort((a, b) => {
+    const aIsNew = !seenPostIds.has(a.id);
+    const bIsNew = !seenPostIds.has(b.id);
+
+    // Unseen posts come first
+    if (aIsNew && !bIsNew) return -1;
+    if (!aIsNew && bIsNew) return 1;
+
+    // Within same group, sort by date
     const dateA = new Date(a.pubDate).getTime() || 0;
     const dateB = new Date(b.pubDate).getTime() || 0;
     return dateB - dateA;
