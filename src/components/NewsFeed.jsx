@@ -278,7 +278,7 @@ const INTEREST_KEYWORDS = {
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userCity, userInterests, getNewsByUserLocation } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
@@ -293,8 +293,8 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
-  // Filter news based on user's selected location
-  const filteredNews = getNewsByUserLocation();
+  // Show all news (no location filtering)
+  const filteredNews = news;
 
   // Increment view counts for displayed posts (once per session)
   const hasIncrementedViews = useRef(false);
@@ -452,10 +452,7 @@ function NewsFeed() {
         <div className="px-4 py-3">
           <h2 className="text-xl font-bold text-white">Your Feed</h2>
           <p className="text-sm text-gray-400 mt-0.5">
-            {userCity
-              ? `${userCity.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} + Global`
-              : 'Global news'
-            }
+            All news
             {userInterests && userInterests.length > 0 && (
               <span className="text-gray-500"> · Personalized</span>
             )}
