@@ -604,11 +604,16 @@ function NewsFeed() {
 
   // Handle like toggle - pass post data for recommendations
   const handleLike = async (itemId, postData) => {
-    if (!user) return;
+    if (!user) {
+      console.warn('[Like] No user logged in');
+      return;
+    }
+    console.log('[Like] Toggling like for:', itemId, 'user:', user.uid);
     try {
-      await likesService.toggleLike(itemId, user.uid, postData);
+      const result = await likesService.toggleLike(itemId, user.uid, postData);
+      console.log('[Like] Result:', result);
     } catch (err) {
-      console.error('Failed to toggle like:', err);
+      console.error('[Like] Failed to toggle like:', err);
     }
   };
 

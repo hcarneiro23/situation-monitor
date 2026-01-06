@@ -4,6 +4,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  getDoc,
   query,
   where,
   onSnapshot,
@@ -24,39 +25,46 @@ function extractKeywords(text) {
 export const likesService = {
   // Toggle like for a post (with optional post metadata for recommendations)
   async toggleLike(postId, userId, postData = null) {
+    if (!postId || !userId) {
+      console.error('[Likes] Missing postId or userId:', { postId, userId });
+      return null;
+    }
+
     const likeId = `${postId}_${userId}`;
     const likeRef = doc(db, COLLECTION_NAME, likeId);
 
-    // Check if already liked
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('postId', '==', postId),
-      where('userId', '==', userId)
-    );
-    const snapshot = await getDocs(q);
+    try {
+      // Check if already liked by getting the document directly
+      const docSnap = await getDoc(likeRef);
 
-    if (snapshot.empty) {
-      // Add like with post metadata for recommendations
-      const likeData = {
-        postId,
-        userId,
-        createdAt: new Date().toISOString()
-      };
+      if (!docSnap.exists()) {
+        // Add like with post metadata for recommendations
+        const likeData = {
+          postId,
+          userId,
+          createdAt: new Date().toISOString()
+        };
 
-      // Store post metadata for recommendation engine
-      if (postData) {
-        likeData.source = postData.source || null;
-        likeData.category = postData.category || null;
-        likeData.feedRegion = postData.feedRegion || null;
-        likeData.keywords = extractKeywords(`${postData.title} ${postData.summary || ''}`);
+        // Store post metadata for recommendation engine
+        if (postData) {
+          likeData.source = postData.source || null;
+          likeData.category = postData.category || null;
+          likeData.feedRegion = postData.feedRegion || null;
+          likeData.keywords = extractKeywords(`${postData.title} ${postData.summary || ''}`);
+        }
+
+        await setDoc(likeRef, likeData);
+        console.log('[Likes] Added like:', likeId);
+        return true; // liked
+      } else {
+        // Remove like
+        await deleteDoc(likeRef);
+        console.log('[Likes] Removed like:', likeId);
+        return false; // unliked
       }
-
-      await setDoc(likeRef, likeData);
-      return true; // liked
-    } else {
-      // Remove like
-      await deleteDoc(likeRef);
-      return false; // unliked
+    } catch (error) {
+      console.error('[Likes] Error toggling like:', error);
+      throw error;
     }
   },
 
@@ -78,18 +86,25 @@ export const likesService = {
 
   // Subscribe to all likes (for feed view)
   subscribeToAllLikes(callback) {
-    return onSnapshot(collection(db, COLLECTION_NAME), (snapshot) => {
-      const likesMap = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (!likesMap[data.postId]) {
-          likesMap[data.postId] = { count: 0, userIds: [] };
-        }
-        likesMap[data.postId].count++;
-        likesMap[data.postId].userIds.push(data.userId);
-      });
-      callback(likesMap);
-    });
+    return onSnapshot(
+      collection(db, COLLECTION_NAME),
+      (snapshot) => {
+        const likesMap = {};
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (!likesMap[data.postId]) {
+            likesMap[data.postId] = { count: 0, userIds: [] };
+          }
+          likesMap[data.postId].count++;
+          likesMap[data.postId].userIds.push(data.userId);
+        });
+        console.log('[Likes] Loaded', snapshot.docs.length, 'total likes');
+        callback(likesMap);
+      },
+      (error) => {
+        console.error('[Likes] Error subscribing to all likes:', error);
+      }
+    );
   },
 
   // Subscribe to user's likes (for recommendations)
