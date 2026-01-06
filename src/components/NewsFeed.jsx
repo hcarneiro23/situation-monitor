@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { MessageCircle, Heart, Share, ExternalLink, Bell, BellRing, MapPin, Globe2 } from 'lucide-react';
@@ -62,7 +62,7 @@ function formatDate(dateStr) {
 }
 
 // Tweet-like news item component
-function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount, isNew }) {
+function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount }) {
   const [imgError, setImgError] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likeData?.isLiked || false;
@@ -144,12 +144,6 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
             <span className="font-bold text-white hover:underline">{item.source}</span>
             <span className="text-gray-500">·</span>
             <span className="text-gray-500">{formatDate(item.pubDate)}</span>
-            {/* New badge for fresh posts */}
-            {isNew && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold">
-                NEW
-              </span>
-            )}
             {/* Scope badge for local/regional news */}
             {item.scope === 'local' && (
               <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs">
@@ -269,6 +263,18 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
   );
 }
 
+// Interest keywords for matching
+const INTEREST_KEYWORDS = {
+  'markets': ['market', 'stock', 'trading', 'investor', 'finance', 'economy', 'bank', 'fed', 'rate', 'dow', 'nasdaq', 's&p', 'wall street'],
+  'geopolitics': ['war', 'military', 'nato', 'russia', 'china', 'ukraine', 'conflict', 'troops', 'defense', 'diplomacy', 'sanctions', 'treaty'],
+  'technology': ['tech', 'ai', 'artificial intelligence', 'software', 'chip', 'semiconductor', 'apple', 'google', 'microsoft', 'cyber', 'data'],
+  'energy': ['oil', 'gas', 'energy', 'opec', 'crude', 'fuel', 'renewable', 'solar', 'wind', 'power', 'electricity', 'pipeline'],
+  'trade': ['trade', 'tariff', 'export', 'import', 'commerce', 'supply chain', 'shipping', 'customs', 'wto'],
+  'policy': ['policy', 'regulation', 'law', 'congress', 'senate', 'legislation', 'government', 'election', 'vote', 'bill'],
+  'climate': ['climate', 'carbon', 'emission', 'environment', 'green', 'sustainable', 'weather', 'temperature', 'pollution'],
+  'crypto': ['crypto', 'bitcoin', 'ethereum', 'blockchain', 'token', 'defi', 'nft', 'coin', 'mining', 'wallet'],
+};
+
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -277,50 +283,32 @@ function NewsFeed() {
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
-  const [seenPostIds, setSeenPostIds] = useState(() => {
-    // Get previously seen post IDs
-    const seen = JSON.parse(localStorage.getItem('seenPostIds') || '[]');
-    return new Set(seen);
-  });
   const loaderRef = useRef(null);
-  const hasMarkedInitialPosts = useRef(false);
+
+  // Random seed for this session (changes on refresh)
+  const [sessionSeed] = useState(() => Math.random());
 
   // Filter news based on user's selected location
   const filteredNews = getNewsByUserLocation();
 
-  // Check if a post is new (user hasn't seen it before)
-  const isNewPost = (item) => {
-    return !seenPostIds.has(item.id);
+  // Calculate relevance score for a post based on user interests
+  const getRelevanceScore = (item) => {
+    if (!userInterests || userInterests.length === 0) return 0;
+
+    const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+    let score = 0;
+
+    userInterests.forEach(interest => {
+      const keywords = INTEREST_KEYWORDS[interest] || [];
+      keywords.forEach(keyword => {
+        if (text.includes(keyword)) {
+          score += 1;
+        }
+      });
+    });
+
+    return score;
   };
-
-  // Mark displayed posts as seen after a short delay (so user sees the NEW badge first)
-  useEffect(() => {
-    if (filteredNews.length === 0 || hasMarkedInitialPosts.current) return;
-
-    const timer = setTimeout(() => {
-      const currentIds = filteredNews.slice(0, displayCount).map(item => item.id);
-      const newSeenIds = new Set([...seenPostIds, ...currentIds]);
-
-      // Keep only last 500 IDs to prevent localStorage bloat
-      const trimmed = [...newSeenIds].slice(-500);
-      localStorage.setItem('seenPostIds', JSON.stringify(trimmed));
-      setSeenPostIds(new Set(trimmed));
-      hasMarkedInitialPosts.current = true;
-    }, 3000); // Mark as seen after 3 seconds
-
-    return () => clearTimeout(timer);
-  }, [filteredNews]);
-
-  // Mark additional posts as seen when scrolling (loading more)
-  useEffect(() => {
-    if (!hasMarkedInitialPosts.current || displayCount <= 20) return;
-
-    const currentIds = filteredNews.slice(0, displayCount).map(item => item.id);
-    const newSeenIds = new Set([...seenPostIds, ...currentIds]);
-    const trimmed = [...newSeenIds].slice(-500);
-    localStorage.setItem('seenPostIds', JSON.stringify(trimmed));
-    setSeenPostIds(new Set(trimmed));
-  }, [displayCount]);
 
   // Subscribe to all likes
   useEffect(() => {
@@ -359,20 +347,19 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Sort: unseen posts first, then by date (newest first)
-  const sortedNews = [...filteredNews].sort((a, b) => {
-    const aIsNew = !seenPostIds.has(a.id);
-    const bIsNew = !seenPostIds.has(b.id);
+  // Sort by: relevance score + recency + randomization for variety
+  const sortedNews = useMemo(() => {
+    return [...filteredNews].map(item => {
+      const relevanceScore = getRelevanceScore(item);
+      const recencyScore = Math.max(0, 1 - (Date.now() - new Date(item.pubDate).getTime()) / (24 * 60 * 60 * 1000 * 7)); // Decay over 7 days
+      const randomFactor = (Math.sin(sessionSeed * 1000 + item.id.charCodeAt(0)) + 1) / 2; // Deterministic random per session
 
-    // Unseen posts come first
-    if (aIsNew && !bIsNew) return -1;
-    if (!aIsNew && bIsNew) return 1;
+      // Combined score: relevance (40%) + recency (40%) + random (20%)
+      const totalScore = (relevanceScore * 0.4) + (recencyScore * 0.4) + (randomFactor * 0.2);
 
-    // Within same group, sort by date
-    const dateA = new Date(a.pubDate).getTime() || 0;
-    const dateB = new Date(b.pubDate).getTime() || 0;
-    return dateB - dateA;
-  });
+      return { ...item, _score: totalScore };
+    }).sort((a, b) => b._score - a._score);
+  }, [filteredNews, sessionSeed, userInterests]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
@@ -465,7 +452,6 @@ function NewsFeed() {
                     isLiked: user ? postLikes.userIds.includes(user.uid) : false
                   }}
                   replyCount={commentsMap[item.id] || 0}
-                  isNew={isNewPost(item)}
                 />
               );
             })}
