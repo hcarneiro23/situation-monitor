@@ -277,12 +277,13 @@ function NewsFeed() {
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
-  const [seenPostIds] = useState(() => {
+  const [seenPostIds, setSeenPostIds] = useState(() => {
     // Get previously seen post IDs
     const seen = JSON.parse(localStorage.getItem('seenPostIds') || '[]');
     return new Set(seen);
   });
   const loaderRef = useRef(null);
+  const hasMarkedInitialPosts = useRef(false);
 
   // Filter news based on user's selected location
   const filteredNews = getNewsByUserLocation();
@@ -292,16 +293,34 @@ function NewsFeed() {
     return !seenPostIds.has(item.id);
   };
 
-  // Mark displayed posts as seen
+  // Mark displayed posts as seen after a short delay (so user sees the NEW badge first)
   useEffect(() => {
-    if (filteredNews.length > 0) {
+    if (filteredNews.length === 0 || hasMarkedInitialPosts.current) return;
+
+    const timer = setTimeout(() => {
       const currentIds = filteredNews.slice(0, displayCount).map(item => item.id);
-      const allSeen = [...seenPostIds, ...currentIds];
+      const newSeenIds = new Set([...seenPostIds, ...currentIds]);
+
       // Keep only last 500 IDs to prevent localStorage bloat
-      const trimmed = [...new Set(allSeen)].slice(-500);
+      const trimmed = [...newSeenIds].slice(-500);
       localStorage.setItem('seenPostIds', JSON.stringify(trimmed));
-    }
-  }, [filteredNews, displayCount]);
+      setSeenPostIds(new Set(trimmed));
+      hasMarkedInitialPosts.current = true;
+    }, 3000); // Mark as seen after 3 seconds
+
+    return () => clearTimeout(timer);
+  }, [filteredNews]);
+
+  // Mark additional posts as seen when scrolling (loading more)
+  useEffect(() => {
+    if (!hasMarkedInitialPosts.current || displayCount <= 20) return;
+
+    const currentIds = filteredNews.slice(0, displayCount).map(item => item.id);
+    const newSeenIds = new Set([...seenPostIds, ...currentIds]);
+    const trimmed = [...newSeenIds].slice(-500);
+    localStorage.setItem('seenPostIds', JSON.stringify(trimmed));
+    setSeenPostIds(new Set(trimmed));
+  }, [displayCount]);
 
   // Subscribe to all likes
   useEffect(() => {
