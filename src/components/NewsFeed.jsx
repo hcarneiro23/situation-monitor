@@ -495,8 +495,8 @@ function NewsFeed() {
   const getLikeScore = (item) => {
     if (!userLikeProfile || userLikeProfile.totalLikes === 0) return 0;
 
-    // Don't recommend already liked posts
-    if (userLikeProfile.likedPostIds.includes(item.id)) return 0;
+    // Already liked posts get a neutral score (don't penalize or boost)
+    if (userLikeProfile.likedPostIds.includes(item.id)) return 0.5;
 
     let score = 0;
     const maxScore = 3; // For normalization
