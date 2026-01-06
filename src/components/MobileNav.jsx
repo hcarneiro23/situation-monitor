@@ -1,11 +1,10 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Search, TrendingUp, User } from 'lucide-react';
 
 function MobileNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const lastHomeClickRef = useRef(0);
 
   const tabs = [
     { id: 'home', icon: Home, label: 'Home', path: '/' },
@@ -24,16 +23,13 @@ function MobileNav() {
   const handleTabClick = (id, path) => {
     if (id === 'home') {
       const isAtTop = window.scrollY < 50;
-      const now = Date.now();
-      const timeSinceLastClick = now - lastHomeClickRef.current;
 
-      if (location.pathname === '/' && isAtTop && timeSinceLastClick < 1000) {
-        // Second click while at top - refresh the page
+      if (location.pathname === '/' && isAtTop) {
+        // Already at top - refresh the page
         window.location.reload();
       } else if (location.pathname === '/') {
-        // First click or not at top - scroll to top
+        // Not at top - scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        lastHomeClickRef.current = now;
       } else {
         // Not on home page - navigate to home
         navigate(path);

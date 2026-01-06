@@ -12,7 +12,6 @@ function Header() {
   const unreadCount = alerts.filter(a => !a.read).length;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
-  const lastLogoClickRef = useRef(0);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -36,16 +35,13 @@ function Header() {
 
   const handleLogoClick = () => {
     const isAtTop = window.scrollY < 50;
-    const now = Date.now();
-    const timeSinceLastClick = now - lastLogoClickRef.current;
 
-    if (location.pathname === '/' && isAtTop && timeSinceLastClick < 1000) {
-      // Second click while at top - refresh the page
+    if (location.pathname === '/' && isAtTop) {
+      // Already at top - refresh the page
       window.location.reload();
     } else if (location.pathname === '/') {
-      // First click or not at top - scroll to top
+      // Not at top - scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      lastLogoClickRef.current = now;
     } else {
       // Not on home page - navigate to home
       navigate('/');
