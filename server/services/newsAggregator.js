@@ -334,16 +334,173 @@ const RSS_SOURCES = [
   { url: 'https://jornaldebrasilia.com.br/feed', source: 'Jornal de Brasília', category: 'local', scope: SCOPE_LOCAL, cities: ['brasilia', 'brasília', 'distrito federal', 'df'] },
   { url: 'https://campograndenews.com.br/rss/', source: 'Campo Grande News', category: 'local', scope: SCOPE_LOCAL, cities: ['campo grande'] },
   { url: 'https://feeds.brazilnews.net/rss/2445.xml', source: 'Brazil News', category: 'local', scope: SCOPE_LOCAL, cities: ['sao paulo', 'são paulo', 'rio de janeiro', 'rio'] },
+
+  // ============================================
+  // USA - National & Network News
+  // ============================================
+
+  // Major Networks - Main Feeds
+  { url: 'https://feeds.nbcnews.com/nbcnews/public/news', source: 'NBC News', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://abcnews.go.com/abcnews/topstories', source: 'ABC News', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rss.cbsnews.com/rss/lineup', source: 'CBS News', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rss.cnn.com/rss/cnn_topstories.rss', source: 'CNN', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.foxnews.com/foxnews/latest', source: 'Fox News', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.npr.org/rss/rss.php?id=1001', source: 'NPR', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Major Newspapers
+  { url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', source: 'NYT', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.washingtonpost.com/rss/', source: 'Washington Post', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rss.washingtontimes.com/rss/headlines.xml', source: 'Washington Times', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-NewsTopStories', source: 'USA Today', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.usnews.com/rss/news', source: 'US News', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.newsweek.com/rss', source: 'Newsweek', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://nypost.com/feed', source: 'NY Post', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Digital / Online News
+  { url: 'https://news.yahoo.com/rss/', source: 'Yahoo News', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.vox.com/rss/index.xml', source: 'Vox', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.huffpost.com/section/front-page/feed', source: 'HuffPost', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds2.feedburner.com/SlateMagazineMain', source: 'Slate', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.theintercept.com/feed/', source: 'The Intercept', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.feedburner.com/breitbart', source: 'Breitbart', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://observer.com/feed', source: 'Observer', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Politics Focused
+  { url: 'https://feeds.feedburner.com/politico-all', source: 'Politico', category: 'politics', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.foxnews.com/foxnews/politics', source: 'Fox Politics', category: 'politics', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.abcnews.com/abcnews/politicsheadlines', source: 'ABC Politics', category: 'politics', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/politics', source: 'NBC Politics', category: 'politics', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/politics', source: 'HuffPost Politics', category: 'politics', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Business & Economy
+  { url: 'https://rssfeeds.usatoday.com/usatoday-money-topstories', source: 'USA Today Money', category: 'business', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/business', source: 'NBC Business', category: 'business', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/business', source: 'HuffPost Business', category: 'business', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.bizjournals.com/bizj_us_news', source: 'BizJournals US', category: 'business', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.bizjournals.com/bizj_national_news', source: 'BizJournals National', category: 'business', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Technology
+  { url: 'https://feeds.foxnews.com/foxnews/tech', source: 'Fox Tech', category: 'technology', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-tech-topstories', source: 'USA Today Tech', category: 'technology', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/technology', source: 'NBC Tech', category: 'technology', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/tech', source: 'HuffPost Tech', category: 'technology', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Health & Science
+  { url: 'https://feeds.foxnews.com/foxnews/health', source: 'Fox Health', category: 'health', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.foxnews.com/foxnews/science', source: 'Fox Science', category: 'science', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-health-topstories', source: 'USA Today Health', category: 'health', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/health', source: 'NBC Health', category: 'health', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // World News (US perspective)
+  { url: 'https://rssfeeds.abcnews.com/abcnews/worldnews', source: 'ABC World', category: 'world', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/worldnews', source: 'NBC World', category: 'world', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/world-news', source: 'HuffPost World', category: 'world', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Sports
+  { url: 'https://feeds.foxnews.com/foxnews/sports', source: 'Fox Sports', category: 'sports', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-sports-topstories', source: 'USA Today Sports', category: 'sports', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/sports', source: 'NBC Sports', category: 'sports', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/sports', source: 'HuffPost Sports', category: 'sports', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Entertainment & Lifestyle
+  { url: 'https://feeds.foxnews.com/foxnews/entertainment', source: 'Fox Entertainment', category: 'entertainment', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.foxnews.com/foxnews/lifestyle', source: 'Fox Lifestyle', category: 'lifestyle', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-life-topstories', source: 'USA Today Life', category: 'lifestyle', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-entertainment-topstories', source: 'USA Today Entertainment', category: 'entertainment', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/entertainment', source: 'NBC Entertainment', category: 'entertainment', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/entertainment', source: 'HuffPost Entertainment', category: 'entertainment', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/lifestyle', source: 'HuffPost Lifestyle', category: 'lifestyle', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://feeds.huffpost.com/huffpost/arts-culture', source: 'HuffPost Arts', category: 'culture', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Travel & Weather
+  { url: 'https://rssfeeds.usatoday.com/usatoday-travel-topstories', source: 'USA Today Travel', category: 'travel', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.usatoday.com/usatoday-weather-topstories', source: 'USA Today Weather', category: 'weather', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://rssfeeds.nbcnews.com/nbcnews/public/weather', source: 'NBC Weather', category: 'weather', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // US Government Sources
+  { url: 'https://www.govinfo.gov/feeds/summary/latest.xml', source: 'GovInfo', category: 'government', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.govinfo.gov/feeds/collection/BILLS.xml', source: 'Congress Bills', category: 'government', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.govinfo.gov/feeds/collection/PLAW.xml', source: 'Public Laws', category: 'government', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // Reuters US
+  { url: 'https://www.reuters.com/rssFeed/usNews', source: 'Reuters US', category: 'usa', scope: SCOPE_REGIONAL, region: 'north_america' },
+  { url: 'https://www.reuters.com/rssFeed/technologyNews', source: 'Reuters Tech', category: 'technology', scope: SCOPE_REGIONAL, region: 'north_america' },
+
+  // ============================================
+  // USA - Local City News
+  // ============================================
+
+  // New York
+  { url: 'https://gothamist.com/feed', source: 'Gothamist', category: 'local', scope: SCOPE_LOCAL, cities: ['new york', 'nyc', 'manhattan', 'brooklyn', 'queens', 'bronx'] },
+  { url: 'https://www.newsday.com/rss/', source: 'Newsday', category: 'local', scope: SCOPE_LOCAL, cities: ['new york', 'nyc', 'long island'] },
+
+  // California
+  { url: 'https://www.latimes.com/local/rss2.0.xml', source: 'LA Times', category: 'local', scope: SCOPE_LOCAL, cities: ['los angeles', 'la', 'hollywood'] },
+  { url: 'https://www.sfgate.com/rss/', source: 'SFGate', category: 'local', scope: SCOPE_LOCAL, cities: ['san francisco', 'sf', 'bay area'] },
+  { url: 'https://www.mercurynews.com/feed', source: 'Mercury News', category: 'local', scope: SCOPE_LOCAL, cities: ['san jose', 'silicon valley', 'bay area'] },
+  { url: 'https://www.sacbee.com/latest-news/feed/', source: 'Sacramento Bee', category: 'local', scope: SCOPE_LOCAL, cities: ['sacramento'] },
+
+  // Texas
+  { url: 'https://www.dallasnews.com/arcio/rss/category/news/?format=rss', source: 'Dallas Morning News', category: 'local', scope: SCOPE_LOCAL, cities: ['dallas', 'fort worth', 'dfw'] },
+  { url: 'https://www.houstonchronicle.com/news/rss/', source: 'Houston Chronicle', category: 'local', scope: SCOPE_LOCAL, cities: ['houston'] },
+  { url: 'https://www.startelegram.com/latest-news/rss.xml', source: 'Fort Worth Star-Telegram', category: 'local', scope: SCOPE_LOCAL, cities: ['fort worth', 'dallas', 'dfw'] },
+
+  // Illinois
+  { url: 'https://www.chicagotribune.com/arcio/rss/category/news/?query=&format=rss', source: 'Chicago Tribune', category: 'local', scope: SCOPE_LOCAL, cities: ['chicago'] },
+
+  // Washington
+  { url: 'https://seattletimes.com/rss/localnews', source: 'Seattle Times', category: 'local', scope: SCOPE_LOCAL, cities: ['seattle'] },
+
+  // Colorado
+  { url: 'https://www.denverpost.com/feed', source: 'Denver Post', category: 'local', scope: SCOPE_LOCAL, cities: ['denver'] },
+
+  // Massachusetts
+  { url: 'https://www.boston.com/feed', source: 'Boston.com', category: 'local', scope: SCOPE_LOCAL, cities: ['boston'] },
+
+  // Florida
+  { url: 'https://www.miamiherald.com/rss/', source: 'Miami Herald', category: 'local', scope: SCOPE_LOCAL, cities: ['miami'] },
+  { url: 'https://www.orlandosentinel.com/news/orl-orlando-sentinel-news-rss-story.xml', source: 'Orlando Sentinel', category: 'local', scope: SCOPE_LOCAL, cities: ['orlando'] },
+
+  // Pennsylvania
+  { url: 'https://www.phillyvoice.com/feed', source: 'PhillyVoice', category: 'local', scope: SCOPE_LOCAL, cities: ['philadelphia', 'philly'] },
+
+  // Ohio
+  { url: 'https://www.cleveland.com/news/rss.xml', source: 'Cleveland.com', category: 'local', scope: SCOPE_LOCAL, cities: ['cleveland'] },
+
+  // Minnesota
+  { url: 'https://www.startribune.com/rss/?c=10&c=1&c=3&c=5&format=rss2.0', source: 'Star Tribune', category: 'local', scope: SCOPE_LOCAL, cities: ['minneapolis', 'st paul', 'twin cities'] },
+  { url: 'https://www.twincities.com/feed/', source: 'Twin Cities', category: 'local', scope: SCOPE_LOCAL, cities: ['minneapolis', 'st paul', 'twin cities'] },
+
+  // North Carolina
+  { url: 'https://www.charlotteobserver.com/latest-news/rss.xml', source: 'Charlotte Observer', category: 'local', scope: SCOPE_LOCAL, cities: ['charlotte'] },
+
+  // Georgia
+  { url: 'https://www.ajc.com/rss/', source: 'Atlanta Journal-Constitution', category: 'local', scope: SCOPE_LOCAL, cities: ['atlanta'] },
+
+  // Maryland
+  { url: 'https://www.baltimoresun.com/feeds/', source: 'Baltimore Sun', category: 'local', scope: SCOPE_LOCAL, cities: ['baltimore'] },
 ];
 
 // City-to-region mapping for local news fallback
 const CITY_REGIONS = {
-  // North America
-  'new york': 'north_america', 'nyc': 'north_america', 'los angeles': 'north_america', 'chicago': 'north_america',
-  'houston': 'north_america', 'dallas': 'north_america', 'miami': 'north_america', 'san francisco': 'north_america',
-  'seattle': 'north_america', 'denver': 'north_america', 'boston': 'north_america', 'philadelphia': 'north_america',
-  'washington dc': 'north_america', 'atlanta': 'north_america', 'toronto': 'north_america', 'vancouver': 'north_america',
-  'montreal': 'north_america', 'calgary': 'north_america', 'ottawa': 'north_america', 'edmonton': 'north_america',
+  // North America - USA
+  'new york': 'north_america', 'nyc': 'north_america', 'manhattan': 'north_america', 'brooklyn': 'north_america',
+  'queens': 'north_america', 'bronx': 'north_america', 'long island': 'north_america',
+  'los angeles': 'north_america', 'la': 'north_america', 'hollywood': 'north_america',
+  'chicago': 'north_america', 'houston': 'north_america', 'dallas': 'north_america', 'fort worth': 'north_america',
+  'dfw': 'north_america', 'miami': 'north_america', 'orlando': 'north_america',
+  'san francisco': 'north_america', 'sf': 'north_america', 'bay area': 'north_america',
+  'san jose': 'north_america', 'silicon valley': 'north_america', 'sacramento': 'north_america',
+  'seattle': 'north_america', 'denver': 'north_america', 'boston': 'north_america',
+  'philadelphia': 'north_america', 'philly': 'north_america', 'washington dc': 'north_america', 'dc': 'north_america',
+  'atlanta': 'north_america', 'baltimore': 'north_america', 'cleveland': 'north_america',
+  'minneapolis': 'north_america', 'st paul': 'north_america', 'twin cities': 'north_america',
+  'charlotte': 'north_america', 'phoenix': 'north_america', 'san diego': 'north_america',
+  'austin': 'north_america', 'san antonio': 'north_america', 'las vegas': 'north_america',
+  'portland': 'north_america', 'detroit': 'north_america', 'nashville': 'north_america',
+  // North America - Canada
+  'toronto': 'north_america', 'vancouver': 'north_america', 'montreal': 'north_america',
+  'calgary': 'north_america', 'ottawa': 'north_america', 'edmonton': 'north_america',
 
   // Europe
   'london': 'europe', 'paris': 'europe', 'berlin': 'europe', 'madrid': 'europe', 'barcelona': 'europe',
