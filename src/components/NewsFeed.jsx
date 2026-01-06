@@ -265,11 +265,12 @@ const INTEREST_KEYWORDS = {
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests, followedSources } = useStore();
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
+  const [activeTab, setActiveTab] = useState('foryou'); // 'foryou' or 'following'
   const loaderRef = useRef(null);
 
   // Random seed for this session (changes on refresh)
@@ -280,8 +281,13 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
-  // Show all news (no location filtering)
-  const filteredNews = news;
+  // Filter news based on active tab
+  const filteredNews = useMemo(() => {
+    if (activeTab === 'following' && followedSources.length > 0) {
+      return news.filter(item => followedSources.includes(item.source));
+    }
+    return news;
+  }, [news, activeTab, followedSources]);
 
   // Increment view counts for displayed posts (once per session)
   const hasIncrementedViews = useRef(false);
@@ -432,18 +438,41 @@ function NewsFeed() {
     return () => observer.disconnect();
   }, [hasMore, loading, sortedNews.length]);
 
+  // Reset display count when switching tabs
+  useEffect(() => {
+    setDisplayCount(20);
+  }, [activeTab]);
+
   return (
     <div className="h-full flex flex-col bg-intel-900">
-      {/* Header */}
+      {/* Header with tabs */}
       <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
-        <div className="px-4 py-3">
-          <h2 className="text-xl font-bold text-white">Your Feed</h2>
-          <p className="text-sm text-gray-400 mt-0.5">
-            All news
-            {userInterests && userInterests.length > 0 && (
-              <span className="text-gray-500"> · Personalized</span>
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('foryou')}
+            className={`flex-1 py-4 text-center font-medium transition-colors relative ${
+              activeTab === 'foryou' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            For you
+            {activeTab === 'foryou' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-blue-500 rounded-full" />
             )}
-          </p>
+          </button>
+          <button
+            onClick={() => setActiveTab('following')}
+            className={`flex-1 py-4 text-center font-medium transition-colors relative ${
+              activeTab === 'following' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            Following
+            {followedSources.length > 0 && (
+              <span className="ml-1 text-xs text-gray-500">({followedSources.length})</span>
+            )}
+            {activeTab === 'following' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-blue-500 rounded-full" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -451,8 +480,30 @@ function NewsFeed() {
       <div className="flex-1 overflow-y-auto">
         {sortedNews.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <p className="text-lg">No news yet</p>
-            <p className="text-sm mt-1">News will appear here as they come in</p>
+            {activeTab === 'following' ? (
+              followedSources.length === 0 ? (
+                <>
+                  <p className="text-lg">No sources followed</p>
+                  <p className="text-sm mt-1">Follow news sources to see their posts here</p>
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-full text-sm hover:bg-blue-600 transition-colors"
+                  >
+                    Follow sources
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg">No posts from followed sources</p>
+                  <p className="text-sm mt-1">New posts will appear here</p>
+                </>
+              )
+            ) : (
+              <>
+                <p className="text-lg">No news yet</p>
+                <p className="text-sm mt-1">News will appear here as they come in</p>
+              </>
+            )}
           </div>
         ) : (
           <>

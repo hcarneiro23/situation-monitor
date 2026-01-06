@@ -21,6 +21,7 @@ export const useStore = create((set, get) => ({
   // User preferences (from onboarding)
   userCity: localStorage.getItem('userCity') || null,
   userInterests: JSON.parse(localStorage.getItem('userInterests') || '[]'),
+  followedSources: JSON.parse(localStorage.getItem('followedSources') || '[]'),
   onboardingCompleted: localStorage.getItem('onboardingCompleted') === 'true',
   availableCities: [],
 
@@ -61,6 +62,10 @@ export const useStore = create((set, get) => ({
     localStorage.setItem('userInterests', JSON.stringify(interests));
     set({ userInterests: interests });
   },
+  setFollowedSources: (sources) => {
+    localStorage.setItem('followedSources', JSON.stringify(sources));
+    set({ followedSources: sources });
+  },
   setOnboardingCompleted: (completed) => {
     localStorage.setItem('onboardingCompleted', completed ? 'true' : 'false');
     set({ onboardingCompleted: completed });
@@ -68,8 +73,9 @@ export const useStore = create((set, get) => ({
   resetOnboarding: () => {
     localStorage.removeItem('userCity');
     localStorage.removeItem('userInterests');
+    localStorage.removeItem('followedSources');
     localStorage.removeItem('onboardingCompleted');
-    set({ userCity: null, userInterests: [], onboardingCompleted: false });
+    set({ userCity: null, userInterests: [], followedSources: [], onboardingCompleted: false });
   },
   setAvailableCities: (cities) => set({ availableCities: cities }),
 
