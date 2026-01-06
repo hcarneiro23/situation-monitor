@@ -569,11 +569,9 @@ function NewsFeed() {
 
   // Track shown news to detect new articles
   const [shownNewsIds, setShownNewsIds] = useState(() => new Set());
-  const [newArticlesCount, setNewArticlesCount] = useState(0);
+  const [pendingNewIds, setPendingNewIds] = useState(() => new Set()); // Track which IDs are pending (show button)
+  const [justRevealedIds, setJustRevealedIds] = useState(() => new Set()); // Track IDs that were just revealed (appear at top)
   const [isInitialized, setIsInitialized] = useState(false);
-
-  // Random seed for this session (changes on refresh)
-  const [sessionSeed] = useState(() => Math.random());
 
   // Track view counts per post (used for sorting, not filtering)
   const [postViewCounts, setPostViewCounts] = useState(() => {
@@ -618,8 +616,12 @@ function NewsFeed() {
     const newItems = news.filter(item => !lastNewsIdsRef.current.has(item.id));
 
     if (newItems.length > 0) {
-      // Update the count
-      setNewArticlesCount(newItems.length);
+      // Track the actual IDs of pending new posts
+      setPendingNewIds(prev => {
+        const updated = new Set(prev);
+        newItems.forEach(item => updated.add(item.id));
+        return updated;
+      });
       // Update lastNewsIdsRef to include new items for next comparison
       newItems.forEach(item => lastNewsIdsRef.current.add(item.id));
     }
@@ -632,10 +634,15 @@ function NewsFeed() {
     if (isHandlingNewArticles.current) return;
     isHandlingNewArticles.current = true;
 
+    // Mark pending posts as "just revealed" so they appear at top
+    setJustRevealedIds(new Set(pendingNewIds));
+
     // Add all current news to shown set
     const newShownIds = new Set(news.map(item => item.id));
     setShownNewsIds(newShownIds);
-    setNewArticlesCount(0);
+
+    // Clear pending
+    setPendingNewIds(new Set());
 
     // Scroll to top - use the feed scroll container, not window
     // Use requestAnimationFrame to ensure DOM has updated
@@ -952,7 +959,7 @@ function NewsFeed() {
   };
 
   // Sort by combined score: trending (40%) + like history (60%)
-  // STRICT: First 7 positions = unseen posts ONLY (no repeats from last session)
+  // PRIORITY: Just revealed posts appear at top, then unseen posts, then seen posts
   const sortedNews = useMemo(() => {
     const scored = [...filteredNews].map(item => {
       // Get like score from cache or calculate
@@ -970,30 +977,42 @@ function NewsFeed() {
       // Mark if this post was seen in previous sessions
       const wasSeen = seenPostIds.has(item.id);
 
-      return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore, _wasSeen: wasSeen };
+      // Mark if this post was just revealed (clicked "Show new posts")
+      const wasJustRevealed = justRevealedIds.has(item.id);
+
+      return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore, _wasSeen: wasSeen, _justRevealed: wasJustRevealed };
     }).sort((a, b) => b._score - a._score);
 
-    // Separate unseen and seen posts (both sorted by score)
-    const unseenPosts = scored.filter(item => !item._wasSeen);
-    const seenPosts = scored.filter(item => item._wasSeen);
+    // Separate into three groups: just revealed, unseen, and seen
+    const justRevealedPosts = scored.filter(item => item._justRevealed).sort((a, b) => {
+      // Sort just revealed by pubDate (newest first)
+      const dateA = new Date(a.pubDate || 0);
+      const dateB = new Date(b.pubDate || 0);
+      return dateB - dateA;
+    });
+    const unseenPosts = scored.filter(item => !item._justRevealed && !item._wasSeen);
+    const seenPosts = scored.filter(item => !item._justRevealed && item._wasSeen);
 
-    // Build result: first 7 = ONLY unseen posts, after 7 = seen posts can appear
+    // Build result: just revealed first, then unseen (up to 7), then rest
     let result = [];
 
-    // First 7 positions: only unseen posts
-    const first7 = unseenPosts.slice(0, 7);
-    result.push(...first7);
+    // Just revealed posts go at the very top
+    result.push(...justRevealedPosts);
+
+    // Then first 7 unseen posts
+    const first7Unseen = unseenPosts.slice(0, 7);
+    result.push(...first7Unseen);
 
     // Remaining unseen posts (if any beyond 7)
     const remainingUnseen = unseenPosts.slice(7);
 
-    // After position 7: mix remaining unseen with seen posts, sorted by score
+    // After that: mix remaining unseen with seen posts, sorted by score
     const afterFirst7 = [...remainingUnseen, ...seenPosts].sort((a, b) => b._score - a._score);
     result.push(...afterFirst7);
 
     // Apply source diversity - no more than 2 consecutive from same source
     return enforceSourceDiversity(result, 2);
-  }, [filteredNews, scoresCalculated, trendingPhrases, seenPostIds]);
+  }, [filteredNews, scoresCalculated, trendingPhrases, seenPostIds, justRevealedIds]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
@@ -1072,9 +1091,9 @@ function NewsFeed() {
   useEffect(() => {
     setDisplayCount(20);
     // Show all articles when switching tabs
-    if (newArticlesCount > 0) {
+    if (pendingNewIds.size > 0) {
       setShownNewsIds(new Set(news.map(item => item.id)));
-      setNewArticlesCount(0);
+      setPendingNewIds(new Set());
     }
   }, [activeTab]);
 
@@ -1112,7 +1131,7 @@ function NewsFeed() {
       </div>
 
       {/* New articles button */}
-      {newArticlesCount > 0 && (
+      {pendingNewIds.size > 0 && (
         <button
           onPointerDown={(e) => {
             e.preventDefault();
@@ -1121,7 +1140,7 @@ function NewsFeed() {
           className="w-full py-3 bg-blue-500/10 hover:bg-blue-500/20 active:bg-blue-500/30 text-blue-400 font-medium text-sm border-b border-intel-700 transition-colors cursor-pointer select-none"
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
         >
-          Show {newArticlesCount} new {newArticlesCount === 1 ? 'post' : 'posts'}
+          Show {pendingNewIds.size} new {pendingNewIds.size === 1 ? 'post' : 'posts'}
         </button>
       )}
 
