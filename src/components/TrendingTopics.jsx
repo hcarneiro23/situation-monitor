@@ -68,8 +68,9 @@ function TrendingTopics() {
     if (!news || news.length === 0) return [];
 
     const phraseCounts = new Map();
+    const wordCounts = new Map();
 
-    // Extract 2-word phrases from titles
+    // Extract words and 2-word phrases from titles
     news.forEach(item => {
       // Keep accented characters, remove punctuation except hyphens/apostrophes
       const titleWords = item.title
@@ -78,6 +79,14 @@ function TrendingTopics() {
         .split(/\s+/)
         .filter(word => word.length >= 3 && !/^\d+$/.test(word));
 
+      // Count single words (must be 4+ chars for single word topics)
+      titleWords.forEach(word => {
+        if (word.length >= 4 && !STOP_WORDS.has(word) && isValidWord(word)) {
+          wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+        }
+      });
+
+      // Count 2-word phrases
       for (let i = 0; i < titleWords.length - 1; i++) {
         const w1 = titleWords[i];
         const w2 = titleWords[i + 1];
@@ -86,20 +95,28 @@ function TrendingTopics() {
         if (!isValidWord(w1) || !isValidWord(w2)) continue;
 
         const phrase = `${w1} ${w2}`;
-
         phraseCounts.set(phrase, (phraseCounts.get(phrase) || 0) + 1);
       }
     });
 
-    // Convert to array and sort by count
-    const sortedPhrases = Array.from(phraseCounts.entries())
-      .filter(([, count]) => count >= 2) // Require at least 2 mentions
-      .sort((a, b) => b[1] - a[1])
+    // Get top single words (require 3+ mentions for single words)
+    const topWords = Array.from(wordCounts.entries())
+      .filter(([, count]) => count >= 3)
+      .map(([word, count]) => ({ text: word, count, type: 'word' }));
+
+    // Get top phrases (require 2+ mentions)
+    const topPhrases = Array.from(phraseCounts.entries())
+      .filter(([, count]) => count >= 2)
+      .map(([phrase, count]) => ({ text: phrase, count, type: 'phrase' }));
+
+    // Combine, sort by count, and take top 10
+    const combined = [...topWords, ...topPhrases]
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    return sortedPhrases.map(([phrase, count]) => ({
-      text: phrase.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-      count
+    return combined.map(item => ({
+      text: item.text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      count: item.count
     }));
   }, [news]);
 

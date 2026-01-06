@@ -309,11 +309,12 @@ function isValidTrendingWord(word) {
   return true;
 }
 
-// Extract trending phrases from news (phrases appearing in 2+ articles)
+// Extract trending words and phrases from news
 function extractTrendingPhrases(newsItems) {
   if (!newsItems || newsItems.length === 0) return [];
 
   const phraseCounts = new Map();
+  const wordCounts = new Map();
 
   newsItems.forEach(item => {
     const titleWords = item.title
@@ -322,6 +323,14 @@ function extractTrendingPhrases(newsItems) {
       .split(/\s+/)
       .filter(word => word.length >= 3 && !/^\d+$/.test(word));
 
+    // Count single words (4+ chars)
+    titleWords.forEach(word => {
+      if (word.length >= 4 && !STOP_WORDS.has(word) && isValidTrendingWord(word)) {
+        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+      }
+    });
+
+    // Count 2-word phrases
     for (let i = 0; i < titleWords.length - 1; i++) {
       const w1 = titleWords[i];
       const w2 = titleWords[i + 1];
@@ -334,11 +343,18 @@ function extractTrendingPhrases(newsItems) {
     }
   });
 
-  return Array.from(phraseCounts.entries())
+  // Combine words (3+ mentions) and phrases (2+ mentions)
+  const topWords = Array.from(wordCounts.entries())
+    .filter(([, count]) => count >= 3)
+    .map(([word, count]) => ({ phrase: word, count }));
+
+  const topPhrases = Array.from(phraseCounts.entries())
     .filter(([, count]) => count >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
     .map(([phrase, count]) => ({ phrase, count }));
+
+  return [...topWords, ...topPhrases]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
 }
 
 // Interest keywords for matching
