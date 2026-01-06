@@ -575,41 +575,35 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Sort by: country + interests + likes + recency + randomization - penalize seen posts
-  // Use a ref to store stable scores that don't change when likes change
+  // Track if userLikeProfile has been initialized (to clear cache on first load)
+  const [likeProfileReady, setLikeProfileReady] = useState(false);
   const stableScoresRef = useRef({});
 
-  const sortedNews = useMemo(() => {
-    const newScores = {};
+  // Clear cache when userLikeProfile first loads (but not on subsequent updates from likes)
+  useEffect(() => {
+    if (userLikeProfile && !likeProfileReady) {
+      console.log('[Feed] Like profile loaded, clearing score cache for fresh calculation');
+      stableScoresRef.current = {};
+      setLikeProfileReady(true);
+    }
+  }, [userLikeProfile, likeProfileReady]);
 
+  // Sort by likes - feed is entirely based on like history
+  const sortedNews = useMemo(() => {
     const sorted = [...filteredNews].map(item => {
       // Use cached score if available to prevent re-ordering on like
       if (stableScoresRef.current[item.id] !== undefined) {
         return { ...item, _score: stableScoresRef.current[item.id] };
       }
 
-      const countryScore = getCountryScore(item);
-      const relevanceScore = getRelevanceScore(item);
       const likeScore = getLikeScore(item);
-      const recencyScore = Math.max(0, 1 - (Date.now() - new Date(item.pubDate).getTime()) / (24 * 60 * 60 * 1000 * 7)); // Decay over 7 days
-      const randomFactor = (Math.sin(sessionSeed * 1000 + item.id.charCodeAt(0)) + 1) / 2; // Deterministic random per session
 
-      // Penalize posts seen multiple times (less seen = higher score)
-      const viewCount = postViewCounts[item.id] || 0;
-      const freshnessScore = Math.max(0, 1 - (viewCount / 3)); // 0 views = 1, 3+ views = 0
-
-      // Combined score: likes (100%) - feed is entirely based on like history
-      const totalScore = likeScore;
-
-      newScores[item.id] = totalScore;
-      return { ...item, _score: totalScore };
+      stableScoresRef.current[item.id] = likeScore;
+      return { ...item, _score: likeScore };
     }).sort((a, b) => b._score - a._score);
 
-    // Cache the scores for displayed items
-    Object.assign(stableScoresRef.current, newScores);
-
     return sorted;
-  }, [filteredNews, sessionSeed, userInterests, userCountry, userRegion, postViewCounts]); // Removed userLikeProfile to prevent re-sort on like
+  }, [filteredNews, likeProfileReady]); // Recalculate when likeProfileReady changes (only once)
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
