@@ -79,7 +79,7 @@ function TopicDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-intel-900">
+    <div className="min-h-screen bg-intel-900 pb-16 lg:pb-0">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
         <div className="flex items-center gap-4 px-4 py-3">

@@ -235,7 +235,7 @@ function PostDetail() {
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-intel-900 text-gray-100">
+      <div className="min-h-screen bg-intel-900 text-gray-100 pb-16 lg:pb-0">
         <div className="max-w-[600px] mx-auto border-x border-intel-700 min-h-screen">
           {/* Header */}
           <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
@@ -363,7 +363,7 @@ function PostDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-intel-900 text-gray-100">
+    <div className="min-h-screen bg-intel-900 text-gray-100 pb-16 lg:pb-0">
       <div className="max-w-[600px] mx-auto border-x border-intel-700 min-h-screen">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">

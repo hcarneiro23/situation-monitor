@@ -10,6 +10,10 @@ import AlertPanel from './components/AlertPanel';
 import PostDetail from './components/PostDetail';
 import TopicDetail from './components/TopicDetail';
 import Onboarding from './components/Onboarding';
+import MobileNav from './components/MobileNav';
+import SearchPage from './components/SearchPage';
+import TrendingPage from './components/TrendingPage';
+import ProfilePage from './components/ProfilePage';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
@@ -190,6 +194,15 @@ function App() {
             {/* Topic detail page */}
             <Route path="/topic/:topic" element={<TopicDetail />} />
 
+            {/* Search page (mobile) */}
+            <Route path="/search" element={<SearchPage />} />
+
+            {/* Trending page (mobile) */}
+            <Route path="/trending" element={<TrendingPage />} />
+
+            {/* Profile page (mobile) */}
+            <Route path="/profile" element={<ProfilePage />} />
+
             {/* Main feed */}
             <Route path="*" element={
               <>
@@ -201,7 +214,7 @@ function App() {
                   <div className="flex">
                     {/* Main feed column */}
                     <div className="flex-1 min-w-0 border-x border-intel-700">
-                      <div className="h-[calc(100vh-64px)]">
+                      <div className="h-[calc(100vh-64px)] pb-14 lg:pb-0">
                         <NewsFeed />
                       </div>
                     </div>
@@ -216,6 +229,9 @@ function App() {
               </>
             } />
           </Routes>
+
+          {/* Mobile bottom navigation */}
+          <MobileNav />
         </div>
       </ProtectedRoute>
     </BrowserRouter>
