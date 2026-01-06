@@ -69,15 +69,28 @@ function TrendingTopics() {
 
     const phraseCounts = new Map();
     const wordCounts = new Map();
+    const wordContexts = new Map(); // Track what phrases each word appears in
+    const capitalizedCounts = new Map(); // Track if word is typically capitalized (proper noun)
 
     // Extract words and 2-word phrases from titles
     news.forEach(item => {
-      // Keep accented characters, remove punctuation except hyphens/apostrophes
-      const titleWords = item.title
-        .toLowerCase()
-        .replace(/[^\w\s\u00C0-\u024F'-]/g, ' ') // Keep Unicode letters
+      const originalTitle = item.title;
+
+      // Extract original words to check capitalization
+      const originalWords = originalTitle
+        .replace(/[^\w\s\u00C0-\u024F'-]/g, ' ')
         .split(/\s+/)
         .filter(word => word.length >= 3 && !/^\d+$/.test(word));
+
+      // Track capitalization patterns (proper nouns start with capital mid-sentence)
+      originalWords.forEach((word, idx) => {
+        const lower = word.toLowerCase();
+        if (idx > 0 && /^[A-Z\u00C0-\u00DC]/.test(word) && !STOP_WORDS.has(lower)) {
+          capitalizedCounts.set(lower, (capitalizedCounts.get(lower) || 0) + 1);
+        }
+      });
+
+      const titleWords = originalWords.map(w => w.toLowerCase());
 
       // Count single words (must be 4+ chars for single word topics)
       titleWords.forEach(word => {
@@ -86,7 +99,7 @@ function TrendingTopics() {
         }
       });
 
-      // Count 2-word phrases
+      // Count 2-word phrases and track word contexts
       for (let i = 0; i < titleWords.length - 1; i++) {
         const w1 = titleWords[i];
         const w2 = titleWords[i + 1];
@@ -96,25 +109,138 @@ function TrendingTopics() {
 
         const phrase = `${w1} ${w2}`;
         phraseCounts.set(phrase, (phraseCounts.get(phrase) || 0) + 1);
+
+        // Track contexts for each word
+        if (!wordContexts.has(w1)) wordContexts.set(w1, new Map());
+        if (!wordContexts.has(w2)) wordContexts.set(w2, new Map());
+        wordContexts.get(w1).set(phrase, (wordContexts.get(w1).get(phrase) || 0) + 1);
+        wordContexts.get(w2).set(phrase, (wordContexts.get(w2).get(phrase) || 0) + 1);
       }
     });
 
-    // Get top single words (require 3+ mentions for single words)
-    const topWords = Array.from(wordCounts.entries())
-      .filter(([, count]) => count >= 3)
-      .map(([word, count]) => ({ text: word, count, type: 'word' }));
+    // Determine if a word should stand alone or needs phrase context
+    const shouldUseWord = (word, wordCount) => {
+      const contexts = wordContexts.get(word);
+      const capCount = capitalizedCounts.get(word) || 0;
 
-    // Get top phrases (require 2+ mentions)
-    const topPhrases = Array.from(phraseCounts.entries())
+      // Strong proper noun indicator: frequently capitalized mid-sentence
+      const isLikelyProperNoun = capCount >= Math.max(2, wordCount * 0.3);
+
+      if (!contexts || contexts.size === 0) {
+        // No phrase contexts, use word if frequent enough
+        return wordCount >= 3;
+      }
+
+      // Check how many different phrase contexts this word appears in
+      const uniqueContexts = contexts.size;
+      const totalContextAppearances = Array.from(contexts.values()).reduce((a, b) => a + b, 0);
+
+      // If word appears in 3+ different phrases, it's likely a standalone entity (proper noun)
+      // Examples: "Trump" in "Trump tariffs", "Trump administration", "Trump policy"
+      if (uniqueContexts >= 3 && isLikelyProperNoun) {
+        return true;
+      }
+
+      // If word appears mostly in ONE phrase, prefer the phrase
+      const maxPhraseCount = Math.max(...contexts.values());
+      if (maxPhraseCount >= totalContextAppearances * 0.6 && maxPhraseCount >= 2) {
+        // This word is strongly associated with one phrase
+        return false;
+      }
+
+      // Proper nouns should stand alone even with fewer contexts
+      if (isLikelyProperNoun && wordCount >= 3) {
+        return true;
+      }
+
+      // Generic words (not proper nouns) need phrase context
+      if (!isLikelyProperNoun && wordCount < 5) {
+        return false;
+      }
+
+      return wordCount >= 3;
+    };
+
+    // Build candidates
+    const candidates = [];
+    const usedWords = new Set();
+
+    // First pass: identify strong single-word topics (proper nouns, entities)
+    const wordEntries = Array.from(wordCounts.entries())
+      .filter(([word, count]) => count >= 3 && shouldUseWord(word, count))
+      .sort((a, b) => b[1] - a[1]);
+
+    wordEntries.forEach(([word, count]) => {
+      candidates.push({ text: word, count, type: 'word' });
+      usedWords.add(word);
+    });
+
+    // Second pass: add phrases where component words aren't already strong topics
+    const phraseEntries = Array.from(phraseCounts.entries())
       .filter(([, count]) => count >= 2)
-      .map(([phrase, count]) => ({ text: phrase, count, type: 'phrase' }));
+      .sort((a, b) => b[1] - a[1]);
 
-    // Combine, sort by count, and take top 10
-    const combined = [...topWords, ...topPhrases]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    phraseEntries.forEach(([phrase, count]) => {
+      const [w1, w2] = phrase.split(' ');
 
-    return combined.map(item => ({
+      // Skip if both words are already covered by strong single-word topics
+      const w1Strong = usedWords.has(w1) && wordCounts.get(w1) >= count * 1.5;
+      const w2Strong = usedWords.has(w2) && wordCounts.get(w2) >= count * 1.5;
+
+      if (w1Strong && w2Strong) {
+        return; // Skip redundant phrase
+      }
+
+      // If phrase is stronger than individual words, prefer phrase
+      const w1Count = wordCounts.get(w1) || 0;
+      const w2Count = wordCounts.get(w2) || 0;
+
+      // Check if phrase represents a meaningful compound concept
+      const phraseIsStronger = count >= Math.max(w1Count, w2Count) * 0.5;
+      const neitherWordStrong = !usedWords.has(w1) && !usedWords.has(w2);
+
+      if (phraseIsStronger || neitherWordStrong) {
+        candidates.push({ text: phrase, count, type: 'phrase' });
+        // Mark words as covered by this phrase
+        if (!usedWords.has(w1)) usedWords.add(w1);
+        if (!usedWords.has(w2)) usedWords.add(w2);
+      }
+    });
+
+    // Sort by count and remove redundancy
+    const sorted = candidates.sort((a, b) => b.count - a.count);
+
+    // Final deduplication: don't show both "Trump" and "Trump tariffs"
+    const final = [];
+    const coveredTexts = new Set();
+
+    for (const item of sorted) {
+      if (final.length >= 10) break;
+
+      const words = item.text.split(' ');
+
+      // Check if this topic is redundant with existing topics
+      let isRedundant = false;
+      for (const existing of final) {
+        const existingWords = existing.text.split(' ');
+        // Skip if single word is contained in an existing phrase with similar count
+        if (item.type === 'word' && existingWords.includes(item.text) && existing.count >= item.count * 0.6) {
+          isRedundant = true;
+          break;
+        }
+        // Skip if phrase contains an existing single word topic with much higher count
+        if (item.type === 'phrase' && existing.type === 'word' && words.includes(existing.text) && existing.count >= item.count * 2) {
+          isRedundant = true;
+          break;
+        }
+      }
+
+      if (!isRedundant) {
+        final.push(item);
+      }
+    }
+
+    return final.map(item => ({
       text: item.text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
       count: item.count
     }));
