@@ -495,9 +495,6 @@ function NewsFeed() {
   const getLikeScore = (item) => {
     if (!userLikeProfile || userLikeProfile.totalLikes === 0) return 0;
 
-    // Already liked posts get a neutral score (don't penalize or boost)
-    if (userLikeProfile.likedPostIds.includes(item.id)) return 0.5;
-
     let score = 0;
     const maxScore = 3; // For normalization
 
@@ -579,8 +576,18 @@ function NewsFeed() {
   };
 
   // Sort by: country + interests + likes + recency + randomization - penalize seen posts
+  // Use a ref to store stable scores that don't change when likes change
+  const stableScoresRef = useRef({});
+
   const sortedNews = useMemo(() => {
-    return [...filteredNews].map(item => {
+    const newScores = {};
+
+    const sorted = [...filteredNews].map(item => {
+      // Use cached score if available to prevent re-ordering on like
+      if (stableScoresRef.current[item.id] !== undefined) {
+        return { ...item, _score: stableScoresRef.current[item.id] };
+      }
+
       const countryScore = getCountryScore(item);
       const relevanceScore = getRelevanceScore(item);
       const likeScore = getLikeScore(item);
@@ -595,9 +602,15 @@ function NewsFeed() {
       // Country, likes and interests are prioritized heavily
       const totalScore = (countryScore * 0.30) + (likeScore * 0.25) + (relevanceScore * 0.20) + (recencyScore * 0.15) + (freshnessScore * 0.07) + (randomFactor * 0.03);
 
+      newScores[item.id] = totalScore;
       return { ...item, _score: totalScore };
     }).sort((a, b) => b._score - a._score);
-  }, [filteredNews, sessionSeed, userInterests, userCountry, userRegion, userLikeProfile, postViewCounts]);
+
+    // Cache the scores for displayed items
+    Object.assign(stableScoresRef.current, newScores);
+
+    return sorted;
+  }, [filteredNews, sessionSeed, userInterests, userCountry, userRegion, postViewCounts]); // Removed userLikeProfile to prevent re-sort on like
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
