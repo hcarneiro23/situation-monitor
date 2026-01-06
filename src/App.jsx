@@ -14,6 +14,7 @@ import MobileNav from './components/MobileNav';
 import SearchPage from './components/SearchPage';
 import TrendingPage from './components/TrendingPage';
 import ProfilePage from './components/ProfilePage';
+import SearchBar from './components/SearchBar';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
@@ -219,10 +220,15 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Right sidebar - Trends & Watchlist */}
-                    <div className="hidden lg:block w-[350px] p-4 space-y-6">
-                      <TrendingTopics />
-                      <Watchlist />
+                    {/* Right sidebar - Search, Trends & Watchlist */}
+                    <div className="hidden lg:block w-[350px] p-4 space-y-4">
+                      <div className="sticky top-20">
+                        <SearchBar />
+                        <div className="mt-4 space-y-6">
+                          <TrendingTopics />
+                          <Watchlist />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </main>
