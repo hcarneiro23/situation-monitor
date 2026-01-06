@@ -256,6 +256,76 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
   );
 }
 
+// Stop words for trending topic extraction
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+  'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had',
+  'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must',
+  'shall', 'can', 'need', 'dare', 'ought', 'used', 'it', 'its', 'this', 'that',
+  'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'what', 'which', 'who',
+  'whom', 'whose', 'where', 'when', 'why', 'how', 'all', 'each', 'every', 'both',
+  'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
+  'same', 'so', 'than', 'too', 'very', 'just', 'also', 'now', 'here', 'there', 'then',
+  'once', 'if', 'because', 'until', 'while', 'although', 'though', 'after', 'before',
+  'above', 'below', 'between', 'under', 'again', 'further', 'about', 'into', 'through',
+  'during', 'out', 'off', 'over', 'up', 'down', 'any', 'new', 'says', 'said', 'say',
+  'according', 'report', 'reports', 'news', 'amid', 'among', 'around', 'being', 'get',
+  'gets', 'got', 'make', 'makes', 'made', 'take', 'takes', 'took', 'come', 'comes',
+  'came', 'go', 'goes', 'went', 'see', 'sees', 'saw', 'know', 'knows', 'knew', 'think',
+  'thinks', 'thought', 'want', 'wants', 'wanted', 'use', 'uses', 'used', 'find', 'finds',
+  'found', 'give', 'gives', 'gave', 'tell', 'tells', 'told', 'may', 'year', 'years',
+  'day', 'days', 'time', 'first', 'last', 'long', 'great', 'little', 'own', 'old',
+  'right', 'big', 'high', 'different', 'small', 'large', 'next', 'early', 'young',
+  'important', 'public', 'bad', 'good', 'best', 'worst', 'way', 'week', 'month',
+  'today', 'yesterday', 'tomorrow', 'monday', 'tuesday', 'wednesday', 'thursday',
+  'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december', 'reuters',
+  'associated', 'press', 'bbc', 'cnn', 'guardian', 'times', 'post', 'journal',
+  'breaking', 'update', 'latest', 'live', 'watch', 'read', 'more', 'click', 'video'
+]);
+
+// Extract trending phrases from news (phrases appearing in 2+ articles)
+function extractTrendingPhrases(newsItems) {
+  if (!newsItems || newsItems.length === 0) return [];
+
+  const phrasesSet = new Set();
+
+  // Extract all unique 2-word phrases from titles
+  newsItems.forEach(item => {
+    const titleWords = item.title
+      .toLowerCase()
+      .replace(/[^\w\s'-]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !/^\d+$/.test(word));
+
+    for (let i = 0; i < titleWords.length - 1; i++) {
+      const w1 = titleWords[i];
+      const w2 = titleWords[i + 1];
+
+      if (STOP_WORDS.has(w1) || STOP_WORDS.has(w2)) continue;
+
+      const phrase = `${w1} ${w2}`;
+      phrasesSet.add(phrase);
+    }
+  });
+
+  // Count articles containing each phrase
+  const phrasesWithCounts = Array.from(phrasesSet).map(phrase => {
+    const words = phrase.split(' ');
+    const count = newsItems.filter(item => {
+      const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+      return words.every(word => text.includes(word));
+    }).length;
+    return { phrase, count };
+  });
+
+  // Return phrases with 2+ mentions, sorted by count
+  return phrasesWithCounts
+    .filter(({ count }) => count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20); // Top 20 trending phrases
+}
+
 // Interest keywords for matching
 const INTEREST_KEYWORDS = {
   'markets': ['market', 'stock', 'trading', 'investor', 'finance', 'economy', 'bank', 'fed', 'rate', 'dow', 'nasdaq', 's&p', 'wall street'],
@@ -447,6 +517,31 @@ function NewsFeed() {
     }
     return shownNews;
   }, [news, activeTab, followedSources, shownNewsIds, isInitialized]);
+
+  // Extract trending phrases from all news (not just filtered)
+  const trendingPhrases = useMemo(() => {
+    return extractTrendingPhrases(news);
+  }, [news]);
+
+  // Calculate trending score for a post
+  const getTrendingScore = (item) => {
+    if (trendingPhrases.length === 0) return 0;
+
+    const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+    let score = 0;
+    const maxPhraseCount = trendingPhrases[0]?.count || 1; // Highest trending count
+
+    trendingPhrases.forEach(({ phrase, count }) => {
+      const words = phrase.split(' ');
+      if (words.every(word => text.includes(word))) {
+        // Weight by how trending the phrase is (normalized by max count)
+        score += count / maxPhraseCount;
+      }
+    });
+
+    // Normalize to 0-1 (cap contribution)
+    return Math.min(score / 3, 1);
+  };
 
   // Increment view counts for displayed posts (once per session)
   const hasIncrementedViews = useRef(false);
@@ -702,19 +797,27 @@ function NewsFeed() {
     return result;
   };
 
-  // Sort by likes - feed is entirely based on like history
+  // Sort by combined score: trending (40%) + like history (60%)
   const sortedNews = useMemo(() => {
     const scored = [...filteredNews].map(item => {
-      // Calculate score for new posts not in cache
+      // Get like score from cache or calculate
       if (stableScoresRef.current[item.id] === undefined) {
         stableScoresRef.current[item.id] = getLikeScore(item);
       }
-      return { ...item, _score: stableScoresRef.current[item.id] };
+      const likeScore = stableScoresRef.current[item.id];
+
+      // Calculate trending score
+      const trendingScore = getTrendingScore(item);
+
+      // Combined score: trending gets 40% weight, likes get 60%
+      const combinedScore = (trendingScore * 0.4) + (likeScore * 0.6);
+
+      return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore };
     }).sort((a, b) => b._score - a._score);
 
     // Apply source diversity - no more than 2 consecutive from same source
     return enforceSourceDiversity(scored, 2);
-  }, [filteredNews, scoresCalculated]);
+  }, [filteredNews, scoresCalculated, trendingPhrases]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
