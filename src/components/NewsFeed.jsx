@@ -284,12 +284,49 @@ function NewsFeed() {
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
   const loaderRef = useRef(null);
+  const hasIncrementedViews = useRef(false);
 
   // Random seed for this session (changes on refresh)
   const [sessionSeed] = useState(() => Math.random());
 
+  // Track view counts per post (max 3 views)
+  const [postViewCounts, setPostViewCounts] = useState(() => {
+    return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
+  });
+
   // Filter news based on user's selected location
-  const filteredNews = getNewsByUserLocation();
+  const allFilteredNews = getNewsByUserLocation();
+
+  // Filter out posts seen 3+ times
+  const filteredNews = allFilteredNews.filter(item => {
+    const viewCount = postViewCounts[item.id] || 0;
+    return viewCount < 3;
+  });
+
+  // Increment view counts for displayed posts (once per session)
+  useEffect(() => {
+    if (hasIncrementedViews.current || filteredNews.length === 0) return;
+
+    const displayedIds = filteredNews.slice(0, displayCount).map(item => item.id);
+    const updatedCounts = { ...postViewCounts };
+
+    displayedIds.forEach(id => {
+      updatedCounts[id] = (updatedCounts[id] || 0) + 1;
+    });
+
+    // Clean up old entries (keep only last 1000)
+    const entries = Object.entries(updatedCounts);
+    if (entries.length > 1000) {
+      const trimmed = Object.fromEntries(entries.slice(-1000));
+      localStorage.setItem('postViewCounts', JSON.stringify(trimmed));
+      setPostViewCounts(trimmed);
+    } else {
+      localStorage.setItem('postViewCounts', JSON.stringify(updatedCounts));
+      setPostViewCounts(updatedCounts);
+    }
+
+    hasIncrementedViews.current = true;
+  }, [filteredNews, displayCount]);
 
   // Calculate relevance score for a post based on user interests
   const getRelevanceScore = (item) => {
