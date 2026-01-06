@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Heart, Share, ExternalLink, Bell, BellRing, MapPin, Globe2 } from 'lucide-react';
+import { MessageCircle, Heart, Share, ExternalLink, Bell, BellRing } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { likesService } from '../services/likes';
 import { commentsService } from '../services/comments';
@@ -144,19 +144,6 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
             <span className="font-bold text-white hover:underline">{item.source}</span>
             <span className="text-gray-500">·</span>
             <span className="text-gray-500">{formatDate(item.pubDate)}</span>
-            {/* Scope badge for local/regional news */}
-            {item.scope === 'local' && (
-              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs">
-                <MapPin className="w-3 h-3" />
-                Local
-              </span>
-            )}
-            {item.scope === 'regional' && (
-              <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-xs">
-                <Globe2 className="w-3 h-3" />
-                Regional
-              </span>
-            )}
             <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={handleBookmark}
