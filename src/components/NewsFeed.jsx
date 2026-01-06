@@ -379,6 +379,11 @@ function NewsFeed() {
   const [userLikeProfile, setUserLikeProfile] = useState(null); // For recommendations
   const loaderRef = useRef(null);
 
+  // Track shown news to detect new articles
+  const [shownNewsIds, setShownNewsIds] = useState(new Set());
+  const [newArticlesCount, setNewArticlesCount] = useState(0);
+  const [pendingNews, setPendingNews] = useState([]);
+
   // Random seed for this session (changes on refresh)
   const [sessionSeed] = useState(() => Math.random());
 
@@ -387,13 +392,57 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
-  // Filter news based on active tab
-  const filteredNews = useMemo(() => {
-    if (activeTab === 'following' && followedSources.length > 0) {
-      return news.filter(item => followedSources.includes(item.source));
+  // Initialize shown news on first load
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initializedRef.current && news.length > 0) {
+      setShownNewsIds(new Set(news.map(item => item.id)));
+      initializedRef.current = true;
     }
-    return news;
-  }, [news, activeTab, followedSources]);
+  }, [news]);
+
+  // Detect new articles (check every time news updates)
+  useEffect(() => {
+    if (!initializedRef.current || news.length === 0) return;
+
+    const newItems = news.filter(item => !shownNewsIds.has(item.id));
+    if (newItems.length > 0) {
+      setPendingNews(prev => {
+        // Merge new items, avoiding duplicates
+        const existingIds = new Set(prev.map(p => p.id));
+        const uniqueNew = newItems.filter(item => !existingIds.has(item.id));
+        return [...uniqueNew, ...prev];
+      });
+      setNewArticlesCount(prev => prev + newItems.length);
+    }
+  }, [news, shownNewsIds]);
+
+  // Handle showing new articles
+  const handleShowNewArticles = () => {
+    // Add pending news IDs to shown set
+    setShownNewsIds(prev => {
+      const newSet = new Set(prev);
+      pendingNews.forEach(item => newSet.add(item.id));
+      // Also add any news items that might have come in
+      news.forEach(item => newSet.add(item.id));
+      return newSet;
+    });
+    setPendingNews([]);
+    setNewArticlesCount(0);
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Filter news based on active tab (only show "shown" articles)
+  const filteredNews = useMemo(() => {
+    // Only show articles that have been "shown" (not pending)
+    const shownNews = news.filter(item => shownNewsIds.has(item.id));
+
+    if (activeTab === 'following' && followedSources.length > 0) {
+      return shownNews.filter(item => followedSources.includes(item.source));
+    }
+    return shownNews;
+  }, [news, activeTab, followedSources, shownNewsIds]);
 
   // Increment view counts for displayed posts (once per session)
   const hasIncrementedViews = useRef(false);
@@ -671,9 +720,13 @@ function NewsFeed() {
     return () => observer.disconnect();
   }, [hasMore, loading, sortedNews.length]);
 
-  // Reset display count when switching tabs
+  // Reset display count and new articles when switching tabs
   useEffect(() => {
     setDisplayCount(20);
+    // Also show any pending articles when switching tabs
+    if (newArticlesCount > 0) {
+      handleShowNewArticles();
+    }
   }, [activeTab]);
 
   return (
@@ -708,6 +761,16 @@ function NewsFeed() {
           </button>
         </div>
       </div>
+
+      {/* New articles button */}
+      {newArticlesCount > 0 && (
+        <button
+          onClick={handleShowNewArticles}
+          className="w-full py-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-medium text-sm border-b border-intel-700 transition-colors"
+        >
+          Show {newArticlesCount} new {newArticlesCount === 1 ? 'post' : 'posts'}
+        </button>
+      )}
 
       {/* Feed */}
       <div className="flex-1 overflow-y-auto">
