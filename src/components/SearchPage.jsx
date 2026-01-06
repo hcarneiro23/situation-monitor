@@ -35,6 +35,11 @@ function SearchPage() {
   const [query, setQuery] = useState('');
   const [imgErrors, setImgErrors] = useState({});
 
+  const handleQueryChange = (e) => {
+    setQuery(e.target.value);
+    setImgErrors({}); // Clear image errors on new search
+  };
+
   const results = useMemo(() => {
     if (!query.trim() || query.length < 2) return [];
 
@@ -43,7 +48,7 @@ function SearchPage() {
     return news
       .filter(item => {
         const text = `${item.title} ${item.summary || ''} ${item.source || ''}`.toLowerCase();
-        return searchTerms.every(term => text.includes(term));
+        return searchTerms.some(term => text.includes(term));
       })
       .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
       .slice(0, 50);
@@ -69,7 +74,7 @@ function SearchPage() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={handleQueryChange}
               placeholder="Search news..."
               autoFocus
               className="w-full bg-intel-800 border border-intel-600 rounded-full py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
