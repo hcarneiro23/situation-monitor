@@ -1,16 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useAuth } from '../context/AuthContext';
 import { Bell, LogOut, User, Settings, ChevronDown } from 'lucide-react';
 
 function Header() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isConnected, alerts } = useStore();
   const { user, signOut } = useAuth();
   const unreadCount = alerts.filter(a => !a.read).length;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
+  const lastLogoClickRef = useRef(0);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -32,17 +34,38 @@ function Header() {
     }
   };
 
+  const handleLogoClick = () => {
+    const isAtTop = window.scrollY < 50;
+    const now = Date.now();
+    const timeSinceLastClick = now - lastLogoClickRef.current;
+
+    if (location.pathname === '/' && isAtTop && timeSinceLastClick < 1000) {
+      // Second click while at top - refresh the page
+      window.location.reload();
+    } else if (location.pathname === '/') {
+      // First click or not at top - scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      lastLogoClickRef.current = now;
+    } else {
+      // Not on home page - navigate to home
+      navigate('/');
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-intel-900/80 backdrop-blur-md border-b border-intel-700">
       <div className="max-w-[1200px] mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          >
             <h1 className="text-xl font-bold text-white">Situation Monitor</h1>
             {/* Connection indicator */}
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}
                  title={isConnected ? 'Live' : 'Offline'} />
-          </div>
+          </button>
 
           {/* Right side */}
           <div className="flex items-center gap-3">
