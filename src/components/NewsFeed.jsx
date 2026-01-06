@@ -495,6 +495,11 @@ function NewsFeed() {
   const getLikeScore = (item) => {
     if (!userLikeProfile || userLikeProfile.totalLikes === 0) return 0;
 
+    // Already-liked posts get neutral score - don't pin them to top
+    if (userLikeProfile.likedPostIds?.includes(item.id)) {
+      return 0;
+    }
+
     let score = 0;
     const maxScore = 3; // For normalization
 
