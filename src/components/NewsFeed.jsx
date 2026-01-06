@@ -64,6 +64,7 @@ function formatDate(dateStr) {
 // Tweet-like news item component
 function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount }) {
   const [imgError, setImgError] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likeData?.isLiked || false;
   const likeCount = likeData?.count || 0;
@@ -74,6 +75,11 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
 
   const handleLike = (e) => {
     e.stopPropagation();
+    // Trigger animation
+    if (!isLiked) {
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 300);
+    }
     onLike(item.id, item); // Pass item data for recommendations
   };
 
@@ -224,13 +230,13 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
             {/* Like */}
             <button
               onClick={handleLike}
-              className={`flex items-center gap-1 transition-colors group ${isLiked ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400'}`}
+              className={`flex items-center gap-1 transition-colors group ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-400'}`}
               title={isLiked ? 'Unlike' : 'Like'}
             >
-              <div className="p-2 rounded-full group-hover:bg-pink-400/10">
-                <Heart className={`w-[18px] h-[18px] ${isLiked ? 'fill-current' : ''}`} />
+              <div className={`p-2 rounded-full group-hover:bg-red-400/10 transition-transform ${isAnimating ? 'scale-125' : 'scale-100'}`}>
+                <Heart className={`w-[18px] h-[18px] transition-all duration-200 ${isLiked ? 'fill-red-500 text-red-500' : ''} ${isAnimating ? 'scale-110' : ''}`} />
               </div>
-              {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
+              <span className="text-xs min-w-[1ch]">{likeCount}</span>
             </button>
 
             {/* Share */}

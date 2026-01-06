@@ -207,6 +207,7 @@ function PostDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [replyingToId, setReplyingToId] = useState(null); // comment id for nested replies
   const [likesData, setLikesData] = useState({ count: 0, userIds: [] });
+  const [isLikeAnimating, setIsLikeAnimating] = useState(false);
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
@@ -281,6 +282,11 @@ function PostDetail() {
   const handleLike = async () => {
     if (!user) return;
     try {
+      // Trigger animation when liking
+      if (!isLiked) {
+        setIsLikeAnimating(true);
+        setTimeout(() => setIsLikeAnimating(false), 300);
+      }
       // Pass post data for recommendation tracking
       await likesService.toggleLike(post.id, user.uid, post);
     } catch (err) {
@@ -481,10 +487,10 @@ function PostDetail() {
             {/* Like */}
             <button
               onClick={handleLike}
-              className={`flex items-center gap-2 p-3 rounded-full transition-colors ${isLiked ? 'text-pink-500' : 'text-gray-500 hover:text-pink-400 hover:bg-pink-400/10'}`}
+              className={`flex items-center gap-2 p-3 rounded-full transition-colors ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-400 hover:bg-red-400/10'}`}
             >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-              <span className="text-sm">{likeCount > 0 ? likeCount : ''} {isLiked ? 'Liked' : 'Like'}</span>
+              <Heart className={`w-5 h-5 transition-all duration-200 ${isLiked ? 'fill-red-500 text-red-500' : ''} ${isLikeAnimating ? 'scale-125' : 'scale-100'}`} />
+              <span className="text-sm">{likeCount} {isLiked ? 'Liked' : 'Like'}</span>
             </button>
 
             {/* Share */}
