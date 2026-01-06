@@ -625,18 +625,32 @@ function NewsFeed() {
     }
   }, [news, isInitialized]);
 
-  // Handle showing new articles
+  // Handle showing new articles - debounced to prevent double-firing
+  const isHandlingNewArticles = useRef(false);
   const handleShowNewArticles = () => {
+    // Prevent double-firing from touch + click events
+    if (isHandlingNewArticles.current) return;
+    isHandlingNewArticles.current = true;
+
     // Add all current news to shown set
-    setShownNewsIds(new Set(news.map(item => item.id)));
+    const newShownIds = new Set(news.map(item => item.id));
+    setShownNewsIds(newShownIds);
     setNewArticlesCount(0);
+
     // Scroll to top - use the feed scroll container, not window
-    const feedContainer = document.getElementById('news-feed-scroll');
-    if (feedContainer) {
-      feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      const feedContainer = document.getElementById('news-feed-scroll');
+      if (feedContainer) {
+        feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      // Reset the guard after a short delay
+      setTimeout(() => {
+        isHandlingNewArticles.current = false;
+      }, 300);
+    });
   };
 
   // Filter news based on active tab (only show "shown" articles)
@@ -1100,8 +1114,7 @@ function NewsFeed() {
       {/* New articles button */}
       {newArticlesCount > 0 && (
         <button
-          onClick={handleShowNewArticles}
-          onTouchEnd={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             handleShowNewArticles();
           }}
