@@ -87,20 +87,20 @@ function SearchPage() {
       </div>
 
       {/* Results */}
-      <div className="divide-y divide-intel-700">
-        {trimmedQuery.length < 2 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>Search for news articles</p>
-            <p className="text-sm mt-1">Enter at least 2 characters</p>
-          </div>
-        ) : results.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <p>No results found for "{trimmedQuery}"</p>
-            <p className="text-sm mt-1">Try different keywords</p>
-          </div>
-        ) : (
-          results.map((item) => {
+      {trimmedQuery.length < 2 ? (
+        <div key="empty-state" className="p-8 text-center text-gray-500">
+          <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>Search for news articles</p>
+          <p className="text-sm mt-1">Enter at least 2 characters</p>
+        </div>
+      ) : results.length === 0 ? (
+        <div key="no-results" className="p-8 text-center text-gray-500">
+          <p>No results found for "{trimmedQuery}"</p>
+          <p className="text-sm mt-1">Try different keywords</p>
+        </div>
+      ) : (
+        <div key={`results-${trimmedQuery}`} className="divide-y divide-intel-700">
+          {results.map((item) => {
             const logoUrl = getSourceLogo(item.link);
             return (
               <article
@@ -150,9 +150,9 @@ function SearchPage() {
                 </div>
               </article>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }
