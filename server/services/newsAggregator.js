@@ -282,6 +282,58 @@ const RSS_SOURCES = [
   { url: 'https://edmontonjournal.com/feed/', source: 'Edmonton Journal', category: 'local', scope: SCOPE_LOCAL, cities: ['edmonton'] },
   { url: 'https://calgaryherald.com/feed/', source: 'Calgary Herald', category: 'local', scope: SCOPE_LOCAL, cities: ['calgary'] },
   { url: 'https://ottawacitizen.com/feed/', source: 'Ottawa Citizen', category: 'local', scope: SCOPE_LOCAL, cities: ['ottawa'] },
+
+  // ============================================
+  // BRAZIL - National & Regional News
+  // ============================================
+
+  // Major National Sources
+  { url: 'https://feeds.feedburner.com/EstadaoRSS', source: 'Estadão', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www1.folha.uol.com.br/feed/', source: 'Folha de S.Paulo', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.cnnbrasil.com.br/feed/', source: 'CNN Brasil', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://agenciabrasil.ebc.com.br/rss.xml', source: 'Agência Brasil', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://feeds.bbci.co.uk/portuguese/rss.xml', source: 'BBC Brasil', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://correiobraziliense.com.br/rss/', source: 'Correio Braziliense', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://correiodopovo.com.br/rss/', source: 'Correio do Povo', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.brasildefato.com.br/rss2.xml', source: 'Brasil de Fato', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://reporterbrasil.org.br/feed-rss/', source: 'Repórter Brasil', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.revistaforum.com.br/rss/', source: 'Revista Fórum', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://feeds.feedburner.com/pragmatismopolitico', source: 'Pragmatismo Político', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://brasilwire.com/feed', source: 'Brasil Wire', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://elpais.com/arc/outboundfeeds/rss/tags_slug/brasil-a/?outputType=xml', source: 'El País Brasil', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // UOL Network
+  { url: 'https://rss.uol.com.br/feed', source: 'UOL', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.uol.com.br/economia.xml', source: 'UOL Economia', category: 'economy', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.uol.com.br/politica.xml', source: 'UOL Política', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.uol.com.br/tecnologia.xml', source: 'UOL Tecnologia', category: 'technology', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.uol.com.br/esporte.xml', source: 'UOL Esporte', category: 'sports', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // Terra Network
+  { url: 'https://rss.terra.com.br/feed', source: 'Terra', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.terra.com.br/economia/feed.xml', source: 'Terra Economia', category: 'economy', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.terra.com.br/politica/feed.xml', source: 'Terra Política', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.terra.com.br/tecnologia/feed.xml', source: 'Terra Tecnologia', category: 'technology', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.terra.com.br/mundo/feed.xml', source: 'Terra Mundo', category: 'world', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // Metrópoles Network
+  { url: 'https://rss.metropoles.com/', source: 'Metrópoles', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.metropoles.com/politica/feed', source: 'Metrópoles Política', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.metropoles.com/economia/feed', source: 'Metrópoles Economia', category: 'economy', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // Tech & Finance Brazil
+  { url: 'https://rss.tecmundo.com.br/feed', source: 'TecMundo', category: 'technology', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://olhardigital.com.br/rss', source: 'Olhar Digital', category: 'technology', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://br.investing.com/rss/news.rss', source: 'Investing.com Brasil', category: 'markets', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // Other Networks
+  { url: 'https://rss.r7.com/', source: 'R7', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://rss.band.uol.com.br/xml/portalbandnoticias.xml', source: 'Band', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+
+  // Brazil - Local City News
+  { url: 'https://jornaldebrasilia.com.br/feed', source: 'Jornal de Brasília', category: 'local', scope: SCOPE_LOCAL, cities: ['brasilia', 'brasília', 'distrito federal', 'df'] },
+  { url: 'https://campograndenews.com.br/rss/', source: 'Campo Grande News', category: 'local', scope: SCOPE_LOCAL, cities: ['campo grande'] },
+  { url: 'https://feeds.brazilnews.net/rss/2445.xml', source: 'Brazil News', category: 'local', scope: SCOPE_LOCAL, cities: ['sao paulo', 'são paulo', 'rio de janeiro', 'rio'] },
 ];
 
 // City-to-region mapping for local news fallback
@@ -316,7 +368,15 @@ const CITY_REGIONS = {
   'cairo': 'africa', 'casablanca': 'africa', 'accra': 'africa', 'addis ababa': 'africa',
 
   // Latin America
-  'mexico city': 'latin_america', 'sao paulo': 'latin_america', 'rio de janeiro': 'latin_america',
+  'mexico city': 'latin_america', 'sao paulo': 'latin_america', 'são paulo': 'latin_america',
+  'rio de janeiro': 'latin_america', 'rio': 'latin_america', 'brasilia': 'latin_america',
+  'brasília': 'latin_america', 'distrito federal': 'latin_america', 'df': 'latin_america',
+  'belo horizonte': 'latin_america', 'salvador': 'latin_america', 'fortaleza': 'latin_america',
+  'curitiba': 'latin_america', 'recife': 'latin_america', 'porto alegre': 'latin_america',
+  'manaus': 'latin_america', 'belem': 'latin_america', 'belém': 'latin_america',
+  'goiania': 'latin_america', 'goiânia': 'latin_america', 'campinas': 'latin_america',
+  'campo grande': 'latin_america', 'florianopolis': 'latin_america', 'florianópolis': 'latin_america',
+  'vitoria': 'latin_america', 'vitória': 'latin_america', 'natal': 'latin_america',
   'buenos aires': 'latin_america', 'bogota': 'latin_america', 'lima': 'latin_america',
   'santiago': 'latin_america', 'caracas': 'latin_america', 'havana': 'latin_america',
 
