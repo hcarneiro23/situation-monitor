@@ -330,6 +330,21 @@ const RSS_SOURCES = [
   { url: 'https://rss.r7.com/', source: 'R7', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
   { url: 'https://rss.band.uol.com.br/xml/portalbandnoticias.xml', source: 'Band', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
 
+  // Gazeta do Povo Network
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/ultimas-noticias.xml', source: 'Gazeta do Povo', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/republica.xml', source: 'Gazeta República', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/economia.xml', source: 'Gazeta Economia', category: 'economy', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/brasil.xml', source: 'Gazeta Brasil', category: 'brazil', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/mundo.xml', source: 'Gazeta Mundo', category: 'world', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/vida-e-cidadania.xml', source: 'Gazeta Vida', category: 'lifestyle', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/cultura.xml', source: 'Gazeta Cultura', category: 'culture', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/agronegocio.xml', source: 'Gazeta Agro', category: 'business', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/opiniao.xml', source: 'Gazeta Opinião', category: 'opinion', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/tudo-sobre/congresso-nacional.xml', source: 'Gazeta Congresso', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/tudo-sobre/governo-federal.xml', source: 'Gazeta Governo', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/tudo-sobre/stf.xml', source: 'Gazeta STF', category: 'politics', scope: SCOPE_REGIONAL, region: 'latin_america' },
+  { url: 'https://www.gazetadopovo.com.br/feed/rss/parana.xml', source: 'Gazeta Paraná', category: 'local', scope: SCOPE_LOCAL, cities: ['curitiba', 'londrina', 'maringa', 'maringá', 'foz do iguacu', 'foz do iguaçu', 'parana', 'paraná'] },
+
   // Brazil - Local City News
   { url: 'https://jornaldebrasilia.com.br/feed', source: 'Jornal de Brasília', category: 'local', scope: SCOPE_LOCAL, cities: ['brasilia', 'brasília', 'distrito federal', 'df'] },
   { url: 'https://campograndenews.com.br/rss/', source: 'Campo Grande News', category: 'local', scope: SCOPE_LOCAL, cities: ['campo grande'] },
@@ -534,6 +549,8 @@ const CITY_REGIONS = {
   'goiania': 'latin_america', 'goiânia': 'latin_america', 'campinas': 'latin_america',
   'campo grande': 'latin_america', 'florianopolis': 'latin_america', 'florianópolis': 'latin_america',
   'vitoria': 'latin_america', 'vitória': 'latin_america', 'natal': 'latin_america',
+  'londrina': 'latin_america', 'maringa': 'latin_america', 'maringá': 'latin_america',
+  'foz do iguacu': 'latin_america', 'foz do iguaçu': 'latin_america', 'parana': 'latin_america', 'paraná': 'latin_america',
   'buenos aires': 'latin_america', 'bogota': 'latin_america', 'lima': 'latin_america',
   'santiago': 'latin_america', 'caracas': 'latin_america', 'havana': 'latin_america',
 
