@@ -12,9 +12,18 @@ import {
 
 const COLLECTION_NAME = 'likes';
 
+// Extract keywords from text for recommendation
+function extractKeywords(text) {
+  if (!text) return [];
+  const stopWords = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'will', 'more', 'when', 'who', 'new', 'now', 'way', 'may', 'say', 'she', 'two', 'how', 'its', 'let', 'put', 'too', 'use', 'this', 'that', 'with', 'from', 'they', 'been', 'have', 'were', 'said', 'each', 'which', 'their', 'there', 'what', 'about', 'would', 'could', 'should', 'after', 'before']);
+  const words = text.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
+  // Get unique words
+  return [...new Set(words)].slice(0, 10);
+}
+
 export const likesService = {
-  // Toggle like for a post
-  async toggleLike(postId, userId) {
+  // Toggle like for a post (with optional post metadata for recommendations)
+  async toggleLike(postId, userId, postData = null) {
     const likeId = `${postId}_${userId}`;
     const likeRef = doc(db, COLLECTION_NAME, likeId);
 
@@ -27,12 +36,22 @@ export const likesService = {
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
-      // Add like
-      await setDoc(likeRef, {
+      // Add like with post metadata for recommendations
+      const likeData = {
         postId,
         userId,
         createdAt: new Date().toISOString()
-      });
+      };
+
+      // Store post metadata for recommendation engine
+      if (postData) {
+        likeData.source = postData.source || null;
+        likeData.category = postData.category || null;
+        likeData.feedRegion = postData.feedRegion || null;
+        likeData.keywords = extractKeywords(`${postData.title} ${postData.summary || ''}`);
+      }
+
+      await setDoc(likeRef, likeData);
       return true; // liked
     } else {
       // Remove like
@@ -70,6 +89,46 @@ export const likesService = {
         likesMap[data.postId].userIds.push(data.userId);
       });
       callback(likesMap);
+    });
+  },
+
+  // Subscribe to user's likes (for recommendations)
+  subscribeToUserLikes(userId, callback) {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('userId', '==', userId)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const userLikes = snapshot.docs.map(doc => doc.data());
+
+      // Build recommendation profile from liked posts
+      const profile = {
+        likedPostIds: userLikes.map(l => l.postId),
+        likedSources: {},
+        likedCategories: {},
+        likedKeywords: {},
+        totalLikes: userLikes.length
+      };
+
+      userLikes.forEach(like => {
+        // Count source preferences
+        if (like.source) {
+          profile.likedSources[like.source] = (profile.likedSources[like.source] || 0) + 1;
+        }
+        // Count category preferences
+        if (like.category) {
+          profile.likedCategories[like.category] = (profile.likedCategories[like.category] || 0) + 1;
+        }
+        // Count keyword preferences
+        if (like.keywords && Array.isArray(like.keywords)) {
+          like.keywords.forEach(kw => {
+            profile.likedKeywords[kw] = (profile.likedKeywords[kw] || 0) + 1;
+          });
+        }
+      });
+
+      callback(profile);
     });
   }
 };

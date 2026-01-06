@@ -281,7 +281,8 @@ function PostDetail() {
   const handleLike = async () => {
     if (!user) return;
     try {
-      await likesService.toggleLike(post.id, user.uid);
+      // Pass post data for recommendation tracking
+      await likesService.toggleLike(post.id, user.uid, post);
     } catch (err) {
       console.error('Failed to toggle like:', err);
     }

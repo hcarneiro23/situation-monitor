@@ -74,7 +74,7 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
 
   const handleLike = (e) => {
     e.stopPropagation();
-    onLike(item.id);
+    onLike(item.id, item); // Pass item data for recommendations
   };
 
   const handleShare = async (e) => {
@@ -370,6 +370,7 @@ function NewsFeed() {
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
   const [activeTab, setActiveTab] = useState('foryou'); // 'foryou' or 'following'
+  const [userLikeProfile, setUserLikeProfile] = useState(null); // For recommendations
   const loaderRef = useRef(null);
 
   // Random seed for this session (changes on refresh)
@@ -484,6 +485,43 @@ function NewsFeed() {
     return 0;
   };
 
+  // Calculate like-based recommendation score
+  const getLikeScore = (item) => {
+    if (!userLikeProfile || userLikeProfile.totalLikes === 0) return 0;
+
+    // Don't recommend already liked posts
+    if (userLikeProfile.likedPostIds.includes(item.id)) return 0;
+
+    let score = 0;
+    const maxScore = 3; // For normalization
+
+    // Source match: if user liked posts from this source before
+    if (item.source && userLikeProfile.likedSources[item.source]) {
+      const sourceWeight = Math.min(userLikeProfile.likedSources[item.source] / 3, 1); // Cap at 3 likes
+      score += sourceWeight;
+    }
+
+    // Category match: if user liked posts from this category
+    if (item.category && userLikeProfile.likedCategories[item.category]) {
+      const categoryWeight = Math.min(userLikeProfile.likedCategories[item.category] / 3, 1);
+      score += categoryWeight;
+    }
+
+    // Keyword match: check how many liked keywords appear in this post
+    const postText = `${item.title} ${item.summary || ''}`.toLowerCase();
+    let keywordMatches = 0;
+    Object.entries(userLikeProfile.likedKeywords).forEach(([keyword, count]) => {
+      if (postText.includes(keyword)) {
+        keywordMatches += Math.min(count, 2); // Cap contribution per keyword
+      }
+    });
+    if (keywordMatches > 0) {
+      score += Math.min(keywordMatches / 5, 1); // Normalize keyword score
+    }
+
+    return Math.min(score / maxScore, 1); // Normalize to 0-1
+  };
+
   // Subscribe to all likes
   useEffect(() => {
     const unsubscribe = likesService.subscribeToAllLikes((likes) => {
@@ -491,6 +529,19 @@ function NewsFeed() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Subscribe to user's likes for recommendations
+  useEffect(() => {
+    if (!user?.uid) {
+      setUserLikeProfile(null);
+      return;
+    }
+
+    const unsubscribe = likesService.subscribeToUserLikes(user.uid, (profile) => {
+      setUserLikeProfile(profile);
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   // Subscribe to all comments (for reply counts)
   useEffect(() => {
@@ -521,11 +572,12 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Sort by: country + interests + recency + randomization - penalize seen posts
+  // Sort by: country + interests + likes + recency + randomization - penalize seen posts
   const sortedNews = useMemo(() => {
     return [...filteredNews].map(item => {
       const countryScore = getCountryScore(item);
       const relevanceScore = getRelevanceScore(item);
+      const likeScore = getLikeScore(item);
       const recencyScore = Math.max(0, 1 - (Date.now() - new Date(item.pubDate).getTime()) / (24 * 60 * 60 * 1000 * 7)); // Decay over 7 days
       const randomFactor = (Math.sin(sessionSeed * 1000 + item.id.charCodeAt(0)) + 1) / 2; // Deterministic random per session
 
@@ -533,22 +585,22 @@ function NewsFeed() {
       const viewCount = postViewCounts[item.id] || 0;
       const freshnessScore = Math.max(0, 1 - (viewCount / 3)); // 0 views = 1, 3+ views = 0
 
-      // Combined score: country (35%) + interests (25%) + recency (20%) + freshness (15%) + random (5%)
-      // Country and interests are prioritized heavily
-      const totalScore = (countryScore * 0.35) + (relevanceScore * 0.25) + (recencyScore * 0.20) + (freshnessScore * 0.15) + (randomFactor * 0.05);
+      // Combined score: country (30%) + likes (25%) + interests (20%) + recency (15%) + freshness (7%) + random (3%)
+      // Country, likes and interests are prioritized heavily
+      const totalScore = (countryScore * 0.30) + (likeScore * 0.25) + (relevanceScore * 0.20) + (recencyScore * 0.15) + (freshnessScore * 0.07) + (randomFactor * 0.03);
 
       return { ...item, _score: totalScore };
     }).sort((a, b) => b._score - a._score);
-  }, [filteredNews, sessionSeed, userInterests, userCountry, userRegion, postViewCounts]);
+  }, [filteredNews, sessionSeed, userInterests, userCountry, userRegion, userLikeProfile, postViewCounts]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
 
-  // Handle like toggle
-  const handleLike = async (itemId) => {
+  // Handle like toggle - pass post data for recommendations
+  const handleLike = async (itemId, postData) => {
     if (!user) return;
     try {
-      await likesService.toggleLike(itemId, user.uid);
+      await likesService.toggleLike(itemId, user.uid, postData);
     } catch (err) {
       console.error('Failed to toggle like:', err);
     }
