@@ -62,7 +62,7 @@ function formatDate(dateStr) {
 }
 
 // Tweet-like news item component
-function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount }) {
+function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount, isNew }) {
   const [imgError, setImgError] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likeData?.isLiked || false;
@@ -144,6 +144,12 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
             <span className="font-bold text-white hover:underline">{item.source}</span>
             <span className="text-gray-500">·</span>
             <span className="text-gray-500">{formatDate(item.pubDate)}</span>
+            {/* New badge for fresh posts */}
+            {isNew && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                NEW
+              </span>
+            )}
             {/* Scope badge for local/regional news */}
             {item.scope === 'local' && (
               <span className="ml-1 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs">
@@ -271,48 +277,23 @@ function NewsFeed() {
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
-  const [newPostsCount, setNewPostsCount] = useState(0);
-  const [lastSeenTimestamp, setLastSeenTimestamp] = useState(() => {
-    return localStorage.getItem('lastSeenNewsTimestamp') || null;
+  const [lastSeenTimestamp] = useState(() => {
+    // Get last seen timestamp, then immediately update it to now
+    const lastSeen = localStorage.getItem('lastSeenNewsTimestamp') || '0';
+    localStorage.setItem('lastSeenNewsTimestamp', Date.now().toString());
+    return lastSeen;
   });
   const loaderRef = useRef(null);
-  const feedRef = useRef(null);
 
   // Filter news based on user's selected location
   const filteredNews = getNewsByUserLocation();
 
-  // Check for new posts on mount and when news updates
-  useEffect(() => {
-    if (!lastSeenTimestamp || filteredNews.length === 0) {
-      // First visit or no news - save current newest timestamp
-      if (filteredNews.length > 0) {
-        const newestTimestamp = Math.max(...filteredNews.map(n => new Date(n.pubDate).getTime() || 0));
-        localStorage.setItem('lastSeenNewsTimestamp', newestTimestamp.toString());
-        setLastSeenTimestamp(newestTimestamp.toString());
-      }
-      return;
-    }
-
+  // Check if a post is new (posted after last visit)
+  const isNewPost = (item) => {
+    if (!lastSeenTimestamp || lastSeenTimestamp === '0') return false;
     const lastSeen = parseInt(lastSeenTimestamp);
-    const newPosts = filteredNews.filter(item => {
-      const itemTime = new Date(item.pubDate).getTime() || 0;
-      return itemTime > lastSeen;
-    });
-
-    setNewPostsCount(newPosts.length);
-  }, [filteredNews, lastSeenTimestamp]);
-
-  const handleShowNewPosts = () => {
-    // Update last seen timestamp to now
-    const newestTimestamp = Math.max(...filteredNews.map(n => new Date(n.pubDate).getTime() || 0));
-    localStorage.setItem('lastSeenNewsTimestamp', newestTimestamp.toString());
-    setLastSeenTimestamp(newestTimestamp.toString());
-    setNewPostsCount(0);
-
-    // Scroll to top
-    if (feedRef.current) {
-      feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    const itemTime = new Date(item.pubDate).getTime() || 0;
+    return itemTime > lastSeen;
   };
 
   // Subscribe to all likes
@@ -426,18 +407,8 @@ function NewsFeed() {
         </div>
       </div>
 
-      {/* New posts banner */}
-      {newPostsCount > 0 && (
-        <button
-          onClick={handleShowNewPosts}
-          className="w-full py-3 text-blue-400 text-sm font-medium bg-intel-900/95 hover:bg-intel-800 border-b border-intel-700 transition-colors"
-        >
-          Show {newPostsCount} new {newPostsCount === 1 ? 'post' : 'posts'}
-        </button>
-      )}
-
       {/* Feed */}
-      <div ref={feedRef} className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {sortedNews.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p className="text-lg">No news yet</p>
@@ -460,6 +431,7 @@ function NewsFeed() {
                     isLiked: user ? postLikes.userIds.includes(user.uid) : false
                   }}
                   replyCount={commentsMap[item.id] || 0}
+                  isNew={isNewPost(item)}
                 />
               );
             })}
