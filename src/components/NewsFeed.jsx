@@ -462,6 +462,23 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
+  // Track previously seen posts to avoid repeats in first 30 positions
+  const [seenPostIds] = useState(() => {
+    const stored = localStorage.getItem('seenPostIds');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return new Set(parsed);
+      } catch (e) {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+
+  // Mark posts as seen when displayed (runs once per session)
+  const hasMarkedSeen = useRef(false);
+
   // Store the initial news IDs on first load
   const lastNewsIdsRef = useRef(new Set());
 
@@ -798,6 +815,7 @@ function NewsFeed() {
   };
 
   // Sort by combined score: trending (40%) + like history (60%)
+  // Also prioritize unseen posts for first 30 positions
   const sortedNews = useMemo(() => {
     const scored = [...filteredNews].map(item => {
       // Get like score from cache or calculate
@@ -812,15 +830,52 @@ function NewsFeed() {
       // Combined score: trending gets 40% weight, likes get 60%
       const combinedScore = (trendingScore * 0.4) + (likeScore * 0.6);
 
-      return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore };
+      // Mark if this post was seen in previous sessions
+      const wasSeen = seenPostIds.has(item.id);
+
+      return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore, _wasSeen: wasSeen };
     }).sort((a, b) => b._score - a._score);
 
+    // Separate unseen and seen posts
+    const unseenPosts = scored.filter(item => !item._wasSeen);
+    const seenPosts = scored.filter(item => item._wasSeen);
+
+    // For first 30 positions, prioritize unseen posts
+    // If we have enough unseen posts, use them first
+    // Then fill with seen posts (which can repeat after position 30)
+    let result;
+    if (unseenPosts.length >= 30) {
+      // Plenty of unseen posts - put them first, then seen posts
+      result = [...unseenPosts, ...seenPosts];
+    } else {
+      // Not enough unseen posts - use all unseen first, then seen
+      result = [...unseenPosts, ...seenPosts];
+    }
+
     // Apply source diversity - no more than 2 consecutive from same source
-    return enforceSourceDiversity(scored, 2);
-  }, [filteredNews, scoresCalculated, trendingPhrases]);
+    return enforceSourceDiversity(result, 2);
+  }, [filteredNews, scoresCalculated, trendingPhrases, seenPostIds]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
+
+  // Mark first 30 displayed posts as seen (once per session)
+  useEffect(() => {
+    if (hasMarkedSeen.current || sortedNews.length === 0) return;
+
+    // Get first 30 post IDs to mark as seen
+    const postsToMark = sortedNews.slice(0, 30).map(item => item.id);
+
+    // Add to seen set
+    postsToMark.forEach(id => seenPostIds.add(id));
+
+    // Save to localStorage (keep last 500 to prevent unbounded growth)
+    const allSeenIds = Array.from(seenPostIds);
+    const trimmedIds = allSeenIds.slice(-500);
+    localStorage.setItem('seenPostIds', JSON.stringify(trimmedIds));
+
+    hasMarkedSeen.current = true;
+  }, [sortedNews, seenPostIds]);
 
   // Handle like toggle - pass post data for recommendations
   const handleLike = async (itemId, postData) => {
