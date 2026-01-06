@@ -110,54 +110,38 @@ function TrendingPage() {
       }
     });
 
-    // Determine if a word should stand alone or needs phrase context
+    // Determine if a word should stand alone (very strict - prefer phrases)
     const shouldUseWord = (word, wordCount) => {
       const contexts = wordContexts.get(word);
       const capCount = capitalizedCounts.get(word) || 0;
-      const isLikelyProperNoun = capCount >= Math.max(2, wordCount * 0.3);
 
+      // Very strict proper noun check: must be capitalized 50%+ of the time
+      const isStrongProperNoun = capCount >= Math.max(3, wordCount * 0.5);
+
+      // If word has no phrase contexts and is a strong proper noun, use it
       if (!contexts || contexts.size === 0) {
-        return wordCount >= 3;
+        return isStrongProperNoun && wordCount >= 4;
       }
 
+      // Check how many different phrase contexts this word appears in
       const uniqueContexts = contexts.size;
-      const totalContextAppearances = Array.from(contexts.values()).reduce((a, b) => a + b, 0);
 
-      if (uniqueContexts >= 3 && isLikelyProperNoun) {
+      // Only use single word if:
+      // 1. It's a strong proper noun AND
+      // 2. It appears in 4+ different phrase contexts (truly versatile entity)
+      if (uniqueContexts >= 4 && isStrongProperNoun && wordCount >= 5) {
         return true;
       }
 
-      const maxPhraseCount = Math.max(...contexts.values());
-      if (maxPhraseCount >= totalContextAppearances * 0.6 && maxPhraseCount >= 2) {
-        return false;
-      }
-
-      if (isLikelyProperNoun && wordCount >= 3) {
-        return true;
-      }
-
-      if (!isLikelyProperNoun && wordCount < 5) {
-        return false;
-      }
-
-      return wordCount >= 3;
+      // Default: prefer phrases over single words
+      return false;
     };
 
-    // Build candidates
+    // Build candidates - PHRASES FIRST, then add standalone proper nouns
     const candidates = [];
     const usedWords = new Set();
 
-    // First pass: strong single-word topics (proper nouns)
-    const wordEntries = Array.from(wordCounts.entries())
-      .filter(([word, count]) => count >= 3 && shouldUseWord(word, count))
-      .sort((a, b) => b[1] - a[1]);
-
-    wordEntries.forEach(([word, count]) => {
-      candidates.push({ text: word, count, type: 'word' });
-      usedWords.add(word);
-    });
-
-    // Second pass: phrases where component words aren't strong topics
+    // First pass: add strong phrases (2+ mentions)
     const phraseEntries = Array.from(phraseCounts.entries())
       .filter(([, count]) => count >= 2)
       .sort((a, b) => b[1] - a[1]);
@@ -165,22 +149,19 @@ function TrendingPage() {
     phraseEntries.forEach(([phrase, count]) => {
       const [w1, w2] = phrase.split(' ');
 
-      const w1Strong = usedWords.has(w1) && wordCounts.get(w1) >= count * 1.5;
-      const w2Strong = usedWords.has(w2) && wordCounts.get(w2) >= count * 1.5;
+      // Add phrase and mark its words as covered
+      candidates.push({ text: phrase, count, type: 'phrase' });
+      usedWords.add(w1);
+      usedWords.add(w2);
+    });
 
-      if (w1Strong && w2Strong) return;
+    // Second pass: add standalone proper nouns NOT already covered by phrases
+    const wordEntries = Array.from(wordCounts.entries())
+      .filter(([word, count]) => count >= 4 && !usedWords.has(word) && shouldUseWord(word, count))
+      .sort((a, b) => b[1] - a[1]);
 
-      const w1Count = wordCounts.get(w1) || 0;
-      const w2Count = wordCounts.get(w2) || 0;
-
-      const phraseIsStronger = count >= Math.max(w1Count, w2Count) * 0.5;
-      const neitherWordStrong = !usedWords.has(w1) && !usedWords.has(w2);
-
-      if (phraseIsStronger || neitherWordStrong) {
-        candidates.push({ text: phrase, count, type: 'phrase' });
-        if (!usedWords.has(w1)) usedWords.add(w1);
-        if (!usedWords.has(w2)) usedWords.add(w2);
-      }
+    wordEntries.forEach(([word, count]) => {
+      candidates.push({ text: word, count, type: 'word' });
     });
 
     // Sort and deduplicate
