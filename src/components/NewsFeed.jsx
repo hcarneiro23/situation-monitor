@@ -659,15 +659,61 @@ function NewsFeed() {
     }
   }, [userLikeProfile, filteredNews.length, scoresCalculated]);
 
+  // Enforce max consecutive items from same source
+  const enforceSourceDiversity = (items, maxConsecutive = 2) => {
+    if (items.length <= maxConsecutive) return items;
+
+    const result = [...items];
+    let i = 0;
+
+    while (i < result.length) {
+      // Count consecutive items from same source
+      let consecutiveCount = 1;
+      const currentSource = result[i].source;
+
+      while (i + consecutiveCount < result.length &&
+             result[i + consecutiveCount].source === currentSource) {
+        consecutiveCount++;
+      }
+
+      // If we exceed max consecutive, find a different source to swap in
+      if (consecutiveCount > maxConsecutive) {
+        const swapIndex = i + maxConsecutive; // Position that needs swapping
+
+        // Find next item with different source
+        let foundIndex = -1;
+        for (let j = swapIndex + 1; j < result.length; j++) {
+          if (result[j].source !== currentSource) {
+            foundIndex = j;
+            break;
+          }
+        }
+
+        // If found, swap them
+        if (foundIndex !== -1) {
+          [result[swapIndex], result[foundIndex]] = [result[foundIndex], result[swapIndex]];
+        }
+      }
+
+      // Move to next group
+      i += Math.min(consecutiveCount, maxConsecutive);
+    }
+
+    return result;
+  };
+
   // Sort by likes - feed is entirely based on like history
   const sortedNews = useMemo(() => {
-    return [...filteredNews].map(item => {
+    const scored = [...filteredNews].map(item => {
       // Calculate score for new posts not in cache
       if (stableScoresRef.current[item.id] === undefined) {
         stableScoresRef.current[item.id] = getLikeScore(item);
       }
       return { ...item, _score: stableScoresRef.current[item.id] };
     }).sort((a, b) => b._score - a._score);
+
+    // Apply source diversity - no more than 2 consecutive from same source
+    return enforceSourceDiversity(scored, 2);
   }, [filteredNews, scoresCalculated]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
