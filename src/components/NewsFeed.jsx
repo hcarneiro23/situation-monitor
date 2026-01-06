@@ -262,10 +262,109 @@ const INTEREST_KEYWORDS = {
   'crypto': ['crypto', 'bitcoin', 'ethereum', 'blockchain', 'token', 'defi', 'nft', 'coin', 'mining', 'wallet'],
 };
 
+// City to country mapping for news prioritization
+const CITY_TO_COUNTRY = {
+  // Brazil
+  'sao paulo': 'brazil', 'são paulo': 'brazil', 'rio de janeiro': 'brazil', 'brasilia': 'brazil', 'brasília': 'brazil',
+  'salvador': 'brazil', 'fortaleza': 'brazil', 'belo horizonte': 'brazil', 'manaus': 'brazil', 'curitiba': 'brazil',
+  'recife': 'brazil', 'porto alegre': 'brazil', 'goiania': 'brazil', 'goiânia': 'brazil', 'belem': 'brazil', 'belém': 'brazil',
+  'guarulhos': 'brazil', 'campinas': 'brazil', 'sao luis': 'brazil', 'são luís': 'brazil', 'maceio': 'brazil', 'maceió': 'brazil',
+  'natal': 'brazil', 'florianopolis': 'brazil', 'florianópolis': 'brazil', 'vitoria': 'brazil', 'vitória': 'brazil',
+  'londrina': 'brazil', 'maringa': 'brazil', 'maringá': 'brazil', 'foz do iguacu': 'brazil', 'foz do iguaçu': 'brazil',
+  // USA
+  'new york': 'usa', 'nyc': 'usa', 'los angeles': 'usa', 'chicago': 'usa', 'houston': 'usa', 'phoenix': 'usa',
+  'philadelphia': 'usa', 'san antonio': 'usa', 'san diego': 'usa', 'dallas': 'usa', 'austin': 'usa',
+  'san jose': 'usa', 'san francisco': 'usa', 'seattle': 'usa', 'denver': 'usa', 'boston': 'usa',
+  'washington dc': 'usa', 'washington': 'usa', 'atlanta': 'usa', 'miami': 'usa', 'minneapolis': 'usa',
+  // UK
+  'london': 'uk', 'manchester': 'uk', 'birmingham': 'uk', 'glasgow': 'uk', 'liverpool': 'uk', 'edinburgh': 'uk',
+  // Canada
+  'toronto': 'canada', 'vancouver': 'canada', 'montreal': 'canada', 'calgary': 'canada', 'ottawa': 'canada', 'edmonton': 'canada',
+  // Europe
+  'paris': 'france', 'berlin': 'germany', 'munich': 'germany', 'frankfurt': 'germany', 'madrid': 'spain', 'barcelona': 'spain',
+  'rome': 'italy', 'milan': 'italy', 'amsterdam': 'netherlands', 'brussels': 'belgium', 'vienna': 'austria',
+  'zurich': 'switzerland', 'geneva': 'switzerland', 'lisbon': 'portugal', 'dublin': 'ireland',
+  'stockholm': 'sweden', 'copenhagen': 'denmark', 'oslo': 'norway', 'helsinki': 'finland',
+  'prague': 'czech', 'budapest': 'hungary', 'warsaw': 'poland', 'athens': 'greece',
+  // Asia
+  'tokyo': 'japan', 'osaka': 'japan', 'beijing': 'china', 'shanghai': 'china', 'hong kong': 'china',
+  'seoul': 'south korea', 'taipei': 'taiwan', 'singapore': 'singapore', 'bangkok': 'thailand',
+  'kuala lumpur': 'malaysia', 'jakarta': 'indonesia', 'manila': 'philippines', 'ho chi minh': 'vietnam',
+  'mumbai': 'india', 'delhi': 'india', 'bangalore': 'india', 'chennai': 'india', 'kolkata': 'india',
+  // Middle East
+  'dubai': 'uae', 'abu dhabi': 'uae', 'doha': 'qatar', 'riyadh': 'saudi arabia',
+  'tel aviv': 'israel', 'jerusalem': 'israel', 'istanbul': 'turkey', 'cairo': 'egypt',
+  // Africa
+  'johannesburg': 'south africa', 'cape town': 'south africa', 'nairobi': 'kenya', 'lagos': 'nigeria',
+  // Latin America
+  'mexico city': 'mexico', 'buenos aires': 'argentina', 'bogota': 'colombia', 'lima': 'peru',
+  'santiago': 'chile', 'caracas': 'venezuela',
+  // Oceania
+  'sydney': 'australia', 'melbourne': 'australia', 'brisbane': 'australia', 'perth': 'australia',
+  'auckland': 'new zealand', 'wellington': 'new zealand',
+};
+
+// Country to region mapping
+const COUNTRY_TO_REGION = {
+  'brazil': 'latin_america',
+  'usa': 'north_america',
+  'canada': 'north_america',
+  'uk': 'europe',
+  'france': 'europe', 'germany': 'europe', 'spain': 'europe', 'italy': 'europe',
+  'netherlands': 'europe', 'belgium': 'europe', 'austria': 'europe', 'switzerland': 'europe',
+  'portugal': 'europe', 'ireland': 'europe', 'sweden': 'europe', 'denmark': 'europe',
+  'norway': 'europe', 'finland': 'europe', 'czech': 'europe', 'hungary': 'europe',
+  'poland': 'europe', 'greece': 'europe',
+  'japan': 'east_asia', 'china': 'east_asia', 'south korea': 'east_asia', 'taiwan': 'east_asia',
+  'singapore': 'southeast_asia', 'thailand': 'southeast_asia', 'malaysia': 'southeast_asia',
+  'indonesia': 'southeast_asia', 'philippines': 'southeast_asia', 'vietnam': 'southeast_asia',
+  'india': 'south_asia',
+  'uae': 'middle_east', 'qatar': 'middle_east', 'saudi arabia': 'middle_east',
+  'israel': 'middle_east', 'turkey': 'middle_east', 'egypt': 'middle_east',
+  'south africa': 'africa', 'kenya': 'africa', 'nigeria': 'africa',
+  'mexico': 'latin_america', 'argentina': 'latin_america', 'colombia': 'latin_america',
+  'peru': 'latin_america', 'chile': 'latin_america', 'venezuela': 'latin_america',
+  'australia': 'oceania', 'new zealand': 'oceania',
+};
+
+// Brazilian news sources
+const BRAZILIAN_SOURCES = [
+  'Estadão', 'Folha de S.Paulo', 'Folha', 'O Globo', 'G1', 'CNN Brasil', 'UOL', 'Terra',
+  'Metrópoles', 'R7', 'Veja', 'IstoÉ', 'Exame', 'InfoMoney', 'Valor Econômico',
+  'Gazeta do Povo', 'Correio Braziliense', 'Zero Hora', 'O Dia', 'Lance!', 'Tecmundo',
+  'Olhar Digital', 'Canaltech', 'TecMundo', 'Jovem Pan', 'Band', 'SBT', 'Record',
+];
+
+// US news sources
+const US_SOURCES = [
+  'NBC News', 'ABC News', 'CBS News', 'CNN', 'Fox News', 'NPR', 'PBS',
+  'New York Times', 'Washington Post', 'Wall Street Journal', 'USA Today', 'Los Angeles Times',
+  'Chicago Tribune', 'Boston Globe', 'Politico', 'The Hill', 'Axios', 'Bloomberg',
+  'CNBC', 'MarketWatch', 'TechCrunch', 'The Verge', 'Wired', 'Ars Technica',
+  'AP News', 'Reuters America',
+];
+
+// UK news sources
+const UK_SOURCES = [
+  'BBC', 'BBC News', 'The Guardian', 'The Telegraph', 'Financial Times', 'The Times',
+  'The Independent', 'Sky News', 'Daily Mail', 'Metro',
+];
+
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests, followedSources } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests, followedSources, userCity } = useStore();
+
+  // Get user's country and region from their city
+  const userCountry = useMemo(() => {
+    if (!userCity) return null;
+    return CITY_TO_COUNTRY[userCity.toLowerCase()] || null;
+  }, [userCity]);
+
+  const userRegion = useMemo(() => {
+    if (!userCountry) return null;
+    return COUNTRY_TO_REGION[userCountry] || null;
+  }, [userCountry]);
   const [displayCount, setDisplayCount] = useState(20);
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
@@ -331,7 +430,58 @@ function NewsFeed() {
       });
     });
 
-    return score;
+    // Normalize to 0-1 range (cap at 5 keyword matches)
+    return Math.min(score / 5, 1);
+  };
+
+  // Calculate country/region score for a post based on user's location
+  const getCountryScore = (item) => {
+    if (!userCountry) return 0;
+
+    const source = item.source || '';
+
+    // Check if source is from user's country (highest priority)
+    if (userCountry === 'brazil' && BRAZILIAN_SOURCES.some(s => source.includes(s) || s.includes(source))) {
+      return 1;
+    }
+    if (userCountry === 'usa' && US_SOURCES.some(s => source.includes(s) || s.includes(source))) {
+      return 1;
+    }
+    if (userCountry === 'uk' && UK_SOURCES.some(s => source.includes(s) || s.includes(source))) {
+      return 1;
+    }
+
+    // Check item's feedRegion or category for country match
+    const itemCategory = (item.category || '').toLowerCase();
+    const itemRegion = (item.feedRegion || '').toLowerCase();
+
+    // Direct country match in category (e.g., 'brazil', 'usa')
+    if (itemCategory === userCountry || itemCategory.includes(userCountry)) {
+      return 1;
+    }
+
+    // Region match (e.g., 'latin_america', 'north_america')
+    if (userRegion && (itemRegion === userRegion || itemCategory === userRegion)) {
+      return 0.6;
+    }
+
+    // Check content for country-specific mentions
+    const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+    const countryKeywords = {
+      'brazil': ['brazil', 'brasil', 'brazilian', 'lula', 'bolsonaro', 'petrobras', 'bovespa'],
+      'usa': ['u.s.', 'us ', 'america', 'american', 'biden', 'trump', 'congress', 'washington', 'federal reserve'],
+      'uk': ['britain', 'british', 'uk ', 'london', 'england', 'parliament', 'westminster'],
+      'canada': ['canada', 'canadian', 'trudeau', 'ottawa'],
+      'mexico': ['mexico', 'mexican'],
+      'argentina': ['argentina', 'argentine', 'buenos aires'],
+    };
+
+    const keywords = countryKeywords[userCountry] || [];
+    if (keywords.some(kw => text.includes(kw))) {
+      return 0.8;
+    }
+
+    return 0;
   };
 
   // Subscribe to all likes
@@ -371,9 +521,10 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Sort by: relevance + recency + randomization - penalize seen posts
+  // Sort by: country + interests + recency + randomization - penalize seen posts
   const sortedNews = useMemo(() => {
     return [...filteredNews].map(item => {
+      const countryScore = getCountryScore(item);
       const relevanceScore = getRelevanceScore(item);
       const recencyScore = Math.max(0, 1 - (Date.now() - new Date(item.pubDate).getTime()) / (24 * 60 * 60 * 1000 * 7)); // Decay over 7 days
       const randomFactor = (Math.sin(sessionSeed * 1000 + item.id.charCodeAt(0)) + 1) / 2; // Deterministic random per session
@@ -382,12 +533,13 @@ function NewsFeed() {
       const viewCount = postViewCounts[item.id] || 0;
       const freshnessScore = Math.max(0, 1 - (viewCount / 3)); // 0 views = 1, 3+ views = 0
 
-      // Combined score: freshness (30%) + relevance (30%) + recency (25%) + random (15%)
-      const totalScore = (freshnessScore * 0.3) + (relevanceScore * 0.3) + (recencyScore * 0.25) + (randomFactor * 0.15);
+      // Combined score: country (35%) + interests (25%) + recency (20%) + freshness (15%) + random (5%)
+      // Country and interests are prioritized heavily
+      const totalScore = (countryScore * 0.35) + (relevanceScore * 0.25) + (recencyScore * 0.20) + (freshnessScore * 0.15) + (randomFactor * 0.05);
 
       return { ...item, _score: totalScore };
     }).sort((a, b) => b._score - a._score);
-  }, [filteredNews, sessionSeed, userInterests, postViewCounts]);
+  }, [filteredNews, sessionSeed, userInterests, userCountry, userRegion, postViewCounts]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
