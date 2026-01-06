@@ -256,74 +256,101 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
   );
 }
 
-// Stop words for trending topic extraction
+// Stop words for trending topic extraction (English + Portuguese + Spanish)
 const STOP_WORDS = new Set([
+  // English
   'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
   'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had',
   'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must',
   'shall', 'can', 'need', 'dare', 'ought', 'used', 'it', 'its', 'this', 'that',
-  'these', 'those', 'i', 'you', 'he', 'she', 'we', 'they', 'what', 'which', 'who',
+  'these', 'those', 'you', 'he', 'she', 'we', 'they', 'what', 'which', 'who',
   'whom', 'whose', 'where', 'when', 'why', 'how', 'all', 'each', 'every', 'both',
-  'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
-  'same', 'so', 'than', 'too', 'very', 'just', 'also', 'now', 'here', 'there', 'then',
-  'once', 'if', 'because', 'until', 'while', 'although', 'though', 'after', 'before',
+  'few', 'more', 'most', 'other', 'some', 'such', 'nor', 'not', 'only', 'own',
+  'same', 'than', 'too', 'very', 'just', 'also', 'now', 'here', 'there', 'then',
+  'once', 'because', 'until', 'while', 'although', 'though', 'after', 'before',
   'above', 'below', 'between', 'under', 'again', 'further', 'about', 'into', 'through',
-  'during', 'out', 'off', 'over', 'up', 'down', 'any', 'new', 'says', 'said', 'say',
+  'during', 'out', 'off', 'over', 'down', 'any', 'new', 'says', 'said', 'say',
   'according', 'report', 'reports', 'news', 'amid', 'among', 'around', 'being', 'get',
   'gets', 'got', 'make', 'makes', 'made', 'take', 'takes', 'took', 'come', 'comes',
-  'came', 'go', 'goes', 'went', 'see', 'sees', 'saw', 'know', 'knows', 'knew', 'think',
-  'thinks', 'thought', 'want', 'wants', 'wanted', 'use', 'uses', 'used', 'find', 'finds',
-  'found', 'give', 'gives', 'gave', 'tell', 'tells', 'told', 'may', 'year', 'years',
-  'day', 'days', 'time', 'first', 'last', 'long', 'great', 'little', 'own', 'old',
+  'came', 'goes', 'went', 'see', 'sees', 'saw', 'know', 'knows', 'knew', 'think',
+  'thinks', 'thought', 'want', 'wants', 'wanted', 'use', 'uses', 'find', 'finds',
+  'found', 'give', 'gives', 'gave', 'tell', 'tells', 'told', 'year', 'years',
+  'day', 'days', 'time', 'first', 'last', 'long', 'great', 'little', 'old',
   'right', 'big', 'high', 'different', 'small', 'large', 'next', 'early', 'young',
   'important', 'public', 'bad', 'good', 'best', 'worst', 'way', 'week', 'month',
   'today', 'yesterday', 'tomorrow', 'monday', 'tuesday', 'wednesday', 'thursday',
   'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april', 'june',
   'july', 'august', 'september', 'october', 'november', 'december', 'reuters',
   'associated', 'press', 'bbc', 'cnn', 'guardian', 'times', 'post', 'journal',
-  'breaking', 'update', 'latest', 'live', 'watch', 'read', 'more', 'click', 'video'
+  'breaking', 'update', 'latest', 'live', 'watch', 'read', 'click', 'video',
+  'gov', 'sen', 'rep', 'dr', 'mr', 'mrs', 'ms', 'jr', 'sr',
+  // Portuguese
+  'para', 'com', 'uma', 'por', 'mais', 'como', 'mas', 'foi', 'ser', 'são',
+  'tem', 'seu', 'sua', 'isso', 'esse', 'esta', 'este', 'pela', 'pelo', 'nos',
+  'das', 'dos', 'que', 'não', 'nao', 'ainda', 'sobre', 'após', 'apos', 'até', 'ate',
+  'onde', 'quando', 'muito', 'pode', 'deve', 'será', 'sera', 'está', 'esta',
+  'foram', 'entre', 'dois', 'tres', 'três', 'anos', 'dia', 'dias', 'diz', 'disse',
+  'vai', 'vão', 'vao', 'ter', 'já', 'sem', 'nem', 'só', 'todo', 'toda',
+  'fica', 'contra', 'desde', 'cada', 'seus', 'suas', 'eram', 'eram',
+  // Spanish
+  'para', 'con', 'una', 'por', 'más', 'mas', 'como', 'pero', 'fue', 'ser', 'son',
+  'tiene', 'tienen', 'esto', 'esta', 'ese', 'esa', 'del', 'los', 'las', 'que',
+  'hay', 'muy', 'puede', 'pueden', 'será', 'están', 'entre', 'años', 'día',
+  // Common fragments to filter
+  'est', 'vel', 'ncia', 'cio', 'ção', 'cao', 'mente', 'dade', 'ado', 'ada',
 ]);
 
-// Extract trending phrases from news (phrases appearing in 2+ articles)
+// Check if a word looks like a valid word (has vowels, proper length)
+function isValidTrendingWord(word) {
+  if (word.length < 4) return false;
+  if (word.length > 20) return false;
+  if (/^\d+$/.test(word)) return false;
+  if (!/[aeiouáéíóúàèìòùâêîôûãõäëïöü]/i.test(word)) return false;
+  if (/^[^aeiouáéíóúàèìòùâêîôûãõäëïöü]{4,}$/i.test(word)) return false;
+  return true;
+}
+
+// Extract trending phrases from news (phrases appearing in 3+ articles)
 function extractTrendingPhrases(newsItems) {
   if (!newsItems || newsItems.length === 0) return [];
 
-  const phrasesSet = new Set();
+  const phraseCounts = new Map();
 
-  // Extract all unique 2-word phrases from titles
   newsItems.forEach(item => {
     const titleWords = item.title
       .toLowerCase()
-      .replace(/[^\w\s'-]/g, ' ')
+      .replace(/[^\w\s\u00C0-\u024F'-]/g, ' ')
       .split(/\s+/)
-      .filter(word => word.length > 2 && !/^\d+$/.test(word));
+      .filter(word => word.length >= 4 && !/^\d+$/.test(word));
 
     for (let i = 0; i < titleWords.length - 1; i++) {
       const w1 = titleWords[i];
       const w2 = titleWords[i + 1];
 
       if (STOP_WORDS.has(w1) || STOP_WORDS.has(w2)) continue;
+      if (!isValidTrendingWord(w1) || !isValidTrendingWord(w2)) continue;
+      if (!w1.length >= 5 && !w2.length >= 5) continue;
 
       const phrase = `${w1} ${w2}`;
-      phrasesSet.add(phrase);
+      const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+      const words = phrase.split(' ');
+
+      const allWordsPresent = words.every(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'i');
+        return regex.test(text);
+      });
+
+      if (allWordsPresent) {
+        phraseCounts.set(phrase, (phraseCounts.get(phrase) || 0) + 1);
+      }
     }
   });
 
-  // Count articles containing each phrase
-  const phrasesWithCounts = Array.from(phrasesSet).map(phrase => {
-    const words = phrase.split(' ');
-    const count = newsItems.filter(item => {
-      const text = `${item.title} ${item.summary || ''}`.toLowerCase();
-      return words.every(word => text.includes(word));
-    }).length;
-    return { phrase, count };
-  });
-
-  // Return phrases with 2+ mentions, sorted by count
-  return phrasesWithCounts
-    .filter(({ count }) => count >= 2)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 20); // Top 20 trending phrases
+  return Array.from(phraseCounts.entries())
+    .filter(([, count]) => count >= 3)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20)
+    .map(([phrase, count]) => ({ phrase, count }));
 }
 
 // Interest keywords for matching
