@@ -575,35 +575,42 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Track if userLikeProfile has been initialized (to clear cache on first load)
-  const [likeProfileReady, setLikeProfileReady] = useState(false);
+  // Track if scores have been calculated with a valid profile
+  const [scoresCalculated, setScoresCalculated] = useState(false);
   const stableScoresRef = useRef({});
+  const lastProfileLikesRef = useRef(0);
 
-  // Clear cache when userLikeProfile first loads (but not on subsequent updates from likes)
+  // Calculate scores when profile is ready with actual likes
   useEffect(() => {
-    if (userLikeProfile && !likeProfileReady) {
-      console.log('[Feed] Like profile loaded, clearing score cache for fresh calculation');
+    if (!userLikeProfile || filteredNews.length === 0) return;
+
+    // Only recalculate if:
+    // 1. Scores haven't been calculated yet, OR
+    // 2. Profile has significantly more likes (page refresh, not single like)
+    const likeDiff = userLikeProfile.totalLikes - lastProfileLikesRef.current;
+    const shouldRecalculate = !scoresCalculated || likeDiff > 1 || likeDiff < 0;
+
+    if (shouldRecalculate) {
+      console.log('[Feed] Calculating scores, totalLikes:', userLikeProfile.totalLikes);
       stableScoresRef.current = {};
-      setLikeProfileReady(true);
+      filteredNews.forEach(item => {
+        stableScoresRef.current[item.id] = getLikeScore(item);
+      });
+      lastProfileLikesRef.current = userLikeProfile.totalLikes;
+      setScoresCalculated(true);
     }
-  }, [userLikeProfile, likeProfileReady]);
+  }, [userLikeProfile, filteredNews.length, scoresCalculated]);
 
   // Sort by likes - feed is entirely based on like history
   const sortedNews = useMemo(() => {
-    const sorted = [...filteredNews].map(item => {
-      // Use cached score if available to prevent re-ordering on like
-      if (stableScoresRef.current[item.id] !== undefined) {
-        return { ...item, _score: stableScoresRef.current[item.id] };
+    return [...filteredNews].map(item => {
+      // Calculate score for new posts not in cache
+      if (stableScoresRef.current[item.id] === undefined) {
+        stableScoresRef.current[item.id] = getLikeScore(item);
       }
-
-      const likeScore = getLikeScore(item);
-
-      stableScoresRef.current[item.id] = likeScore;
-      return { ...item, _score: likeScore };
+      return { ...item, _score: stableScoresRef.current[item.id] };
     }).sort((a, b) => b._score - a._score);
-
-    return sorted;
-  }, [filteredNews, likeProfileReady]); // Recalculate when likeProfileReady changes (only once)
+  }, [filteredNews, scoresCalculated]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
