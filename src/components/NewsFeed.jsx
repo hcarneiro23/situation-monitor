@@ -309,19 +309,31 @@ function isValidTrendingWord(word) {
   return true;
 }
 
-// Extract trending words and phrases from news
+// Extract trending words and phrases from news (smart word vs phrase detection)
 function extractTrendingPhrases(newsItems) {
   if (!newsItems || newsItems.length === 0) return [];
 
   const phraseCounts = new Map();
   const wordCounts = new Map();
+  const wordContexts = new Map();
+  const capitalizedCounts = new Map();
 
   newsItems.forEach(item => {
-    const titleWords = item.title
-      .toLowerCase()
+    const originalTitle = item.title;
+    const originalWords = originalTitle
       .replace(/[^\w\s\u00C0-\u024F'-]/g, ' ')
       .split(/\s+/)
       .filter(word => word.length >= 3 && !/^\d+$/.test(word));
+
+    // Track capitalization patterns (proper nouns)
+    originalWords.forEach((word, idx) => {
+      const lower = word.toLowerCase();
+      if (idx > 0 && /^[A-Z\u00C0-\u00DC]/.test(word) && !STOP_WORDS.has(lower)) {
+        capitalizedCounts.set(lower, (capitalizedCounts.get(lower) || 0) + 1);
+      }
+    });
+
+    const titleWords = originalWords.map(w => w.toLowerCase());
 
     // Count single words (4+ chars)
     titleWords.forEach(word => {
@@ -330,7 +342,7 @@ function extractTrendingPhrases(newsItems) {
       }
     });
 
-    // Count 2-word phrases
+    // Count 2-word phrases and track contexts
     for (let i = 0; i < titleWords.length - 1; i++) {
       const w1 = titleWords[i];
       const w2 = titleWords[i + 1];
@@ -340,21 +352,115 @@ function extractTrendingPhrases(newsItems) {
 
       const phrase = `${w1} ${w2}`;
       phraseCounts.set(phrase, (phraseCounts.get(phrase) || 0) + 1);
+
+      if (!wordContexts.has(w1)) wordContexts.set(w1, new Map());
+      if (!wordContexts.has(w2)) wordContexts.set(w2, new Map());
+      wordContexts.get(w1).set(phrase, (wordContexts.get(w1).get(phrase) || 0) + 1);
+      wordContexts.get(w2).set(phrase, (wordContexts.get(w2).get(phrase) || 0) + 1);
     }
   });
 
-  // Combine words (3+ mentions) and phrases (2+ mentions)
-  const topWords = Array.from(wordCounts.entries())
-    .filter(([, count]) => count >= 3)
-    .map(([word, count]) => ({ phrase: word, count }));
+  // Determine if a word should stand alone or needs phrase context
+  const shouldUseWord = (word, wordCount) => {
+    const contexts = wordContexts.get(word);
+    const capCount = capitalizedCounts.get(word) || 0;
+    const isLikelyProperNoun = capCount >= Math.max(2, wordCount * 0.3);
 
-  const topPhrases = Array.from(phraseCounts.entries())
+    if (!contexts || contexts.size === 0) {
+      return wordCount >= 3;
+    }
+
+    const uniqueContexts = contexts.size;
+    const totalContextAppearances = Array.from(contexts.values()).reduce((a, b) => a + b, 0);
+
+    if (uniqueContexts >= 3 && isLikelyProperNoun) {
+      return true;
+    }
+
+    const maxPhraseCount = Math.max(...contexts.values());
+    if (maxPhraseCount >= totalContextAppearances * 0.6 && maxPhraseCount >= 2) {
+      return false;
+    }
+
+    if (isLikelyProperNoun && wordCount >= 3) {
+      return true;
+    }
+
+    if (!isLikelyProperNoun && wordCount < 5) {
+      return false;
+    }
+
+    return wordCount >= 3;
+  };
+
+  // Build candidates
+  const candidates = [];
+  const usedWords = new Set();
+
+  // First pass: strong single-word topics (proper nouns)
+  const wordEntries = Array.from(wordCounts.entries())
+    .filter(([word, count]) => count >= 3 && shouldUseWord(word, count))
+    .sort((a, b) => b[1] - a[1]);
+
+  wordEntries.forEach(([word, count]) => {
+    candidates.push({ phrase: word, count, type: 'word' });
+    usedWords.add(word);
+  });
+
+  // Second pass: phrases where component words aren't strong topics
+  const phraseEntries = Array.from(phraseCounts.entries())
     .filter(([, count]) => count >= 2)
-    .map(([phrase, count]) => ({ phrase, count }));
+    .sort((a, b) => b[1] - a[1]);
 
-  return [...topWords, ...topPhrases]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 20);
+  phraseEntries.forEach(([phrase, count]) => {
+    const [w1, w2] = phrase.split(' ');
+
+    const w1Strong = usedWords.has(w1) && wordCounts.get(w1) >= count * 1.5;
+    const w2Strong = usedWords.has(w2) && wordCounts.get(w2) >= count * 1.5;
+
+    if (w1Strong && w2Strong) return;
+
+    const w1Count = wordCounts.get(w1) || 0;
+    const w2Count = wordCounts.get(w2) || 0;
+
+    const phraseIsStronger = count >= Math.max(w1Count, w2Count) * 0.5;
+    const neitherWordStrong = !usedWords.has(w1) && !usedWords.has(w2);
+
+    if (phraseIsStronger || neitherWordStrong) {
+      candidates.push({ phrase, count, type: 'phrase' });
+      if (!usedWords.has(w1)) usedWords.add(w1);
+      if (!usedWords.has(w2)) usedWords.add(w2);
+    }
+  });
+
+  // Sort and deduplicate
+  const sorted = candidates.sort((a, b) => b.count - a.count);
+  const final = [];
+
+  for (const item of sorted) {
+    if (final.length >= 20) break;
+
+    const words = item.phrase.split(' ');
+    let isRedundant = false;
+
+    for (const existing of final) {
+      const existingWords = existing.phrase.split(' ');
+      if (item.type === 'word' && existingWords.includes(item.phrase) && existing.count >= item.count * 0.6) {
+        isRedundant = true;
+        break;
+      }
+      if (item.type === 'phrase' && existing.type === 'word' && words.includes(existing.phrase) && existing.count >= item.count * 2) {
+        isRedundant = true;
+        break;
+      }
+    }
+
+    if (!isRedundant) {
+      final.push(item);
+    }
+  }
+
+  return final;
 }
 
 // Interest keywords for matching
