@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, User, MapPin, Bell, LogOut, ChevronRight, Check, TrendingUp, Globe2, Cpu, Zap, Scale, FileText, Leaf, Bitcoin } from 'lucide-react';
+import CityAutocomplete from './CityAutocomplete';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const INTEREST_OPTIONS = [
   { id: 'markets', label: 'Markets & Finance', icon: TrendingUp },
@@ -15,25 +18,21 @@ const INTEREST_OPTIONS = [
   { id: 'crypto', label: 'Crypto & Digital Assets', icon: Bitcoin },
 ];
 
-const CITY_OPTIONS = [
-  { id: 'new york', label: 'New York', region: 'Americas' },
-  { id: 'london', label: 'London', region: 'Europe' },
-  { id: 'tokyo', label: 'Tokyo', region: 'Asia' },
-  { id: 'hong kong', label: 'Hong Kong', region: 'Asia' },
-  { id: 'singapore', label: 'Singapore', region: 'Asia' },
-  { id: 'dubai', label: 'Dubai', region: 'Middle East' },
-  { id: 'sydney', label: 'Sydney', region: 'Oceania' },
-  { id: 'frankfurt', label: 'Frankfurt', region: 'Europe' },
-  { id: 'toronto', label: 'Toronto', region: 'Americas' },
-  { id: 'sao paulo', label: 'São Paulo', region: 'Americas' },
-];
-
 function ProfilePage() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { userCity, userInterests, setUserCity, setUserInterests, watchlist, alerts } = useStore();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showInterestsPicker, setShowInterestsPicker] = useState(false);
+  const [supportedCities, setSupportedCities] = useState([]);
+
+  // Fetch supported cities from backend
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/cities`)
+      .then(res => res.json())
+      .then(cities => setSupportedCities(cities))
+      .catch(err => console.error('Failed to fetch cities:', err));
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -118,26 +117,22 @@ function ProfilePage() {
         </button>
 
         {showLocationPicker && (
-          <div className="px-4 py-2 bg-intel-800/50">
-            <div className="grid grid-cols-2 gap-2">
-              {CITY_OPTIONS.map((city) => (
-                <button
-                  key={city.id}
-                  onClick={() => {
-                    setUserCity(city.id);
-                    setShowLocationPicker(false);
-                  }}
-                  className={`p-3 rounded-lg text-left transition-colors ${
-                    userCity === city.id
-                      ? 'bg-blue-500/20 border border-blue-500'
-                      : 'bg-intel-700 border border-transparent hover:border-intel-600'
-                  }`}
-                >
-                  <p className="text-white text-sm font-medium">{city.label}</p>
-                  <p className="text-gray-500 text-xs">{city.region}</p>
-                </button>
-              ))}
-            </div>
+          <div className="px-4 py-3 bg-intel-800/50">
+            <CityAutocomplete
+              value={userCity || ''}
+              onChange={(city) => setUserCity(city)}
+              supportedCities={supportedCities}
+              placeholder="Type your city..."
+            />
+            <button
+              onClick={() => {
+                setUserCity('');
+                setShowLocationPicker(false);
+              }}
+              className="w-full mt-2 p-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Clear location (Global news only)
+            </button>
           </div>
         )}
 

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   ChevronRight,
   ChevronLeft,
   MapPin,
-  Search,
   Check,
   TrendingUp,
   Globe2,
@@ -16,6 +15,9 @@ import {
   Bitcoin,
   Newspaper
 } from 'lucide-react';
+import CityAutocomplete from './CityAutocomplete';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 // Available interests with icons and descriptions
 const INTERESTS = [
@@ -29,43 +31,22 @@ const INTERESTS = [
   { id: 'crypto', label: 'Crypto & Digital Assets', icon: Bitcoin, description: 'Cryptocurrency, blockchain, and digital finance' },
 ];
 
-// City groups for location selection
-const CITY_GROUPS = {
-  'North America': [
-    'new york', 'los angeles', 'chicago', 'houston', 'dallas', 'miami',
-    'san francisco', 'seattle', 'denver', 'boston', 'philadelphia',
-    'washington dc', 'atlanta', 'toronto', 'vancouver', 'montreal'
-  ],
-  'Europe': [
-    'london', 'paris', 'berlin', 'madrid', 'barcelona', 'rome', 'milan',
-    'amsterdam', 'vienna', 'munich', 'frankfurt', 'zurich', 'lisbon',
-    'dublin', 'stockholm', 'copenhagen', 'prague', 'budapest', 'warsaw'
-  ],
-  'Asia Pacific': [
-    'tokyo', 'hong kong', 'singapore', 'bangkok', 'kuala lumpur', 'jakarta',
-    'manila', 'seoul', 'mumbai', 'bangalore', 'delhi', 'dubai',
-    'sydney', 'melbourne', 'auckland'
-  ],
-  'Latin America': [
-    'mexico city', 'sao paulo', 'buenos aires', 'bogota', 'santiago', 'lima'
-  ],
-  'Africa & Middle East': [
-    'cape town', 'johannesburg', 'nairobi', 'cairo', 'casablanca', 'tel aviv'
-  ]
-};
-
-function formatCityName(city) {
-  return city.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
 function Onboarding() {
   const { setUserCity, setUserInterests, setOnboardingCompleted } = useStore();
   const [step, setStep] = useState(0);
   const [selectedInterests, setSelectedInterests] = useState([]);
-  const [selectedCity, setSelectedCity] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [supportedCities, setSupportedCities] = useState([]);
 
   const totalSteps = 3;
+
+  // Fetch supported cities from backend
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/cities`)
+      .then(res => res.json())
+      .then(cities => setSupportedCities(cities))
+      .catch(err => console.error('Failed to fetch cities:', err));
+  }, []);
 
   const toggleInterest = (interestId) => {
     setSelectedInterests(prev =>
@@ -73,22 +54,6 @@ function Onboarding() {
         ? prev.filter(id => id !== interestId)
         : [...prev, interestId]
     );
-  };
-
-  const getFilteredCities = () => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return CITY_GROUPS;
-
-    const filtered = {};
-    Object.entries(CITY_GROUPS).forEach(([region, cities]) => {
-      const matchingCities = cities.filter(city =>
-        city.toLowerCase().includes(query)
-      );
-      if (matchingCities.length > 0) {
-        filtered[region] = matchingCities;
-      }
-    });
-    return filtered;
   };
 
   const handleComplete = () => {
@@ -169,7 +134,9 @@ function Onboarding() {
         );
 
       case 2:
-        const filteredCities = getFilteredCities();
+        const hasLocalNewsSupport = supportedCities.some(
+          c => c.toLowerCase() === selectedCity.toLowerCase()
+        );
         return (
           <div>
             <h2 className="text-2xl font-bold text-white mb-2 text-center">Where are you located?</h2>
@@ -177,32 +144,33 @@ function Onboarding() {
               Get local and regional news tailored to your city.
             </p>
 
-            {/* Search input */}
+            {/* City autocomplete input */}
             <div className="max-w-md mx-auto mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search cities..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-intel-800 border border-intel-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
+              <CityAutocomplete
+                value={selectedCity}
+                onChange={setSelectedCity}
+                supportedCities={supportedCities}
+                placeholder="Type your city..."
+              />
             </div>
 
-            {/* Selected city badge */}
+            {/* Selected city info */}
             {selectedCity && (
               <div className="max-w-md mx-auto mb-4">
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 border border-blue-500/50 rounded-lg">
-                  <MapPin className="w-4 h-4 text-blue-400" />
-                  <span className="text-blue-300 font-medium">{formatCityName(selectedCity)}</span>
-                  <button
-                    onClick={() => setSelectedCity(null)}
-                    className="ml-auto text-blue-400 hover:text-blue-300 text-sm"
-                  >
-                    Change
-                  </button>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                  hasLocalNewsSupport
+                    ? 'bg-green-500/20 border border-green-500/50'
+                    : 'bg-blue-500/20 border border-blue-500/50'
+                }`}>
+                  <MapPin className={`w-4 h-4 ${hasLocalNewsSupport ? 'text-green-400' : 'text-blue-400'}`} />
+                  <span className={`font-medium ${hasLocalNewsSupport ? 'text-green-300' : 'text-blue-300'}`}>
+                    {selectedCity}
+                  </span>
+                  {hasLocalNewsSupport ? (
+                    <span className="ml-auto text-xs text-green-400">Local news available</span>
+                  ) : (
+                    <span className="ml-auto text-xs text-gray-400">International news only</span>
+                  )}
                 </div>
               </div>
             )}
@@ -210,52 +178,24 @@ function Onboarding() {
             {/* Global option */}
             <div className="max-w-md mx-auto mb-4">
               <button
-                onClick={() => setSelectedCity(null)}
+                onClick={() => setSelectedCity('')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
-                  selectedCity === null
+                  !selectedCity
                     ? 'border-blue-500 bg-blue-500/10'
                     : 'border-intel-600 bg-intel-800 hover:border-intel-500'
                 }`}
               >
-                <Globe2 className={`w-5 h-5 ${selectedCity === null ? 'text-blue-400' : 'text-gray-400'}`} />
-                <span className={selectedCity === null ? 'text-white' : 'text-gray-300'}>
+                <Globe2 className={`w-5 h-5 ${!selectedCity ? 'text-blue-400' : 'text-gray-400'}`} />
+                <span className={!selectedCity ? 'text-white' : 'text-gray-300'}>
                   Global (International news only)
                 </span>
-                {selectedCity === null && <Check className="w-4 h-4 text-blue-400 ml-auto" />}
+                {!selectedCity && <Check className="w-4 h-4 text-blue-400 ml-auto" />}
               </button>
             </div>
 
-            {/* City list */}
-            <div className="max-w-md mx-auto max-h-64 overflow-y-auto rounded-xl border border-intel-600 bg-intel-800">
-              {Object.entries(filteredCities).map(([region, cities]) => (
-                <div key={region}>
-                  <div className="px-4 py-2 bg-intel-900/50 sticky top-0 border-b border-intel-700">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      {region}
-                    </span>
-                  </div>
-                  {cities.map(city => (
-                    <button
-                      key={city}
-                      onClick={() => setSelectedCity(city)}
-                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-intel-700 transition-colors ${
-                        selectedCity === city ? 'bg-intel-700' : ''
-                      }`}
-                    >
-                      <span className="text-white">{formatCityName(city)}</span>
-                      {selectedCity === city && (
-                        <Check className="w-4 h-4 text-blue-400 ml-auto" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              {Object.keys(filteredCities).length === 0 && (
-                <div className="px-4 py-8 text-center text-gray-500">
-                  No cities found matching "{searchQuery}"
-                </div>
-              )}
-            </div>
+            <p className="max-w-md mx-auto text-center text-sm text-gray-500 mt-4">
+              Cities with local news sources will show the "Local news" badge when typing.
+            </p>
           </div>
         );
 
