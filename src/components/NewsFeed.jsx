@@ -580,19 +580,18 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
-  // Track posts from LAST SESSION only (not cumulative)
-  // This ensures different posts on each refresh
+  // Track posts from LAST 2 SESSIONS to avoid repeats
+  // This ensures 3+ different views before any posts can repeat
   const [seenPostIds] = useState(() => {
-    const stored = localStorage.getItem('lastSessionPosts');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        return new Set(parsed);
-      } catch (e) {
-        return new Set();
-      }
+    const session1 = localStorage.getItem('lastSessionPosts1') || '[]';
+    const session2 = localStorage.getItem('lastSessionPosts2') || '[]';
+    try {
+      const ids1 = JSON.parse(session1);
+      const ids2 = JSON.parse(session2);
+      return new Set([...ids1, ...ids2]);
+    } catch (e) {
+      return new Set();
     }
-    return new Set();
   });
 
   // Mark posts as seen when displayed (runs once per session)
@@ -981,7 +980,7 @@ function NewsFeed() {
   const hasMore = displayCount < sortedNews.length;
 
   // Mark first 30 displayed posts as seen (once per session)
-  // REPLACES previous session's posts (not cumulative)
+  // Keeps last 2 sessions to avoid repeats for 3+ refreshes
   useEffect(() => {
     if (hasMarkedSeen.current || sortedNews.length === 0) return;
 
@@ -991,9 +990,10 @@ function NewsFeed() {
     // Add to in-memory set for this session
     postsToMark.forEach(id => seenPostIds.add(id));
 
-    // REPLACE localStorage with only THIS session's posts
-    // Next refresh will avoid these specific posts
-    localStorage.setItem('lastSessionPosts', JSON.stringify(postsToMark));
+    // Shift sessions: session1 -> session2, current -> session1
+    const prevSession1 = localStorage.getItem('lastSessionPosts1') || '[]';
+    localStorage.setItem('lastSessionPosts2', prevSession1);
+    localStorage.setItem('lastSessionPosts1', JSON.stringify(postsToMark));
 
     hasMarkedSeen.current = true;
   }, [sortedNews, seenPostIds]);
