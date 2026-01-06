@@ -581,12 +581,19 @@ function NewsFeed() {
   });
 
   // Track previously seen posts to avoid repeats in first 30 positions
+  // Store with timestamps, expire after 24 hours
   const [seenPostIds] = useState(() => {
-    const stored = localStorage.getItem('seenPostIds');
+    const stored = localStorage.getItem('seenPostIdsWithTime');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        return new Set(parsed);
+        const now = Date.now();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+        // Filter out expired entries (older than 24 hours)
+        const valid = Object.entries(parsed)
+          .filter(([, timestamp]) => now - timestamp < twentyFourHours)
+          .map(([id]) => id);
+        return new Set(valid);
       } catch (e) {
         return new Set();
       }
@@ -933,7 +940,7 @@ function NewsFeed() {
   };
 
   // Sort by combined score: trending (40%) + like history (60%)
-  // Also prioritize unseen posts for first 30 positions
+  // STRICT: First 30 positions = unseen posts ONLY (no repeats from last session)
   const sortedNews = useMemo(() => {
     const scored = [...filteredNews].map(item => {
       // Get like score from cache or calculate
@@ -954,21 +961,23 @@ function NewsFeed() {
       return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore, _wasSeen: wasSeen };
     }).sort((a, b) => b._score - a._score);
 
-    // Separate unseen and seen posts
+    // Separate unseen and seen posts (both sorted by score)
     const unseenPosts = scored.filter(item => !item._wasSeen);
     const seenPosts = scored.filter(item => item._wasSeen);
 
-    // For first 30 positions, prioritize unseen posts
-    // If we have enough unseen posts, use them first
-    // Then fill with seen posts (which can repeat after position 30)
-    let result;
-    if (unseenPosts.length >= 30) {
-      // Plenty of unseen posts - put them first, then seen posts
-      result = [...unseenPosts, ...seenPosts];
-    } else {
-      // Not enough unseen posts - use all unseen first, then seen
-      result = [...unseenPosts, ...seenPosts];
-    }
+    // Build result: first 30 = ONLY unseen posts, after 30 = seen posts can appear
+    let result = [];
+
+    // First 30 positions: only unseen posts
+    const first30 = unseenPosts.slice(0, 30);
+    result.push(...first30);
+
+    // Remaining unseen posts (if any beyond 30)
+    const remainingUnseen = unseenPosts.slice(30);
+
+    // After position 30: mix remaining unseen with seen posts, sorted by score
+    const afterFirst30 = [...remainingUnseen, ...seenPosts].sort((a, b) => b._score - a._score);
+    result.push(...afterFirst30);
 
     // Apply source diversity - no more than 2 consecutive from same source
     return enforceSourceDiversity(result, 2);
@@ -983,14 +992,30 @@ function NewsFeed() {
 
     // Get first 30 post IDs to mark as seen
     const postsToMark = sortedNews.slice(0, 30).map(item => item.id);
+    const now = Date.now();
 
     // Add to seen set
     postsToMark.forEach(id => seenPostIds.add(id));
 
-    // Save to localStorage (keep last 500 to prevent unbounded growth)
-    const allSeenIds = Array.from(seenPostIds);
-    const trimmedIds = allSeenIds.slice(-500);
-    localStorage.setItem('seenPostIds', JSON.stringify(trimmedIds));
+    // Load existing timestamps and add new ones
+    let existingData = {};
+    try {
+      existingData = JSON.parse(localStorage.getItem('seenPostIdsWithTime') || '{}');
+    } catch (e) {}
+
+    // Add new posts with current timestamp
+    postsToMark.forEach(id => {
+      existingData[id] = now;
+    });
+
+    // Keep only last 500 entries and remove expired ones
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    const entries = Object.entries(existingData)
+      .filter(([, timestamp]) => now - timestamp < twentyFourHours)
+      .sort((a, b) => b[1] - a[1]) // Sort by timestamp, newest first
+      .slice(0, 500);
+
+    localStorage.setItem('seenPostIdsWithTime', JSON.stringify(Object.fromEntries(entries)));
 
     hasMarkedSeen.current = true;
   }, [sortedNews, seenPostIds]);
