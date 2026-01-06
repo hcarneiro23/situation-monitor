@@ -598,9 +598,9 @@ function NewsFeed() {
       const viewCount = postViewCounts[item.id] || 0;
       const freshnessScore = Math.max(0, 1 - (viewCount / 3)); // 0 views = 1, 3+ views = 0
 
-      // Combined score: country (30%) + likes (25%) + interests (20%) + recency (15%) + freshness (7%) + random (3%)
-      // Country, likes and interests are prioritized heavily
-      const totalScore = (countryScore * 0.30) + (likeScore * 0.25) + (relevanceScore * 0.20) + (recencyScore * 0.15) + (freshnessScore * 0.07) + (randomFactor * 0.03);
+      // Combined score: likes (40%) + country (25%) + interests (15%) + recency (12%) + freshness (5%) + random (3%)
+      // Likes-based recommendations are heavily prioritized
+      const totalScore = (likeScore * 0.40) + (countryScore * 0.25) + (relevanceScore * 0.15) + (recencyScore * 0.12) + (freshnessScore * 0.05) + (randomFactor * 0.03);
 
       newScores[item.id] = totalScore;
       return { ...item, _score: totalScore };
