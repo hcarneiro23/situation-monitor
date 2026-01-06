@@ -380,9 +380,9 @@ function NewsFeed() {
   const loaderRef = useRef(null);
 
   // Track shown news to detect new articles
-  const [shownNewsIds, setShownNewsIds] = useState(new Set());
+  const [shownNewsIds, setShownNewsIds] = useState(() => new Set());
   const [newArticlesCount, setNewArticlesCount] = useState(0);
-  const [pendingNews, setPendingNews] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Random seed for this session (changes on refresh)
   const [sessionSeed] = useState(() => Math.random());
@@ -392,42 +392,38 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
+  // Store the initial news IDs on first load
+  const lastNewsIdsRef = useRef(new Set());
+
   // Initialize shown news on first load
-  const initializedRef = useRef(false);
   useEffect(() => {
-    if (!initializedRef.current && news.length > 0) {
-      setShownNewsIds(new Set(news.map(item => item.id)));
-      initializedRef.current = true;
+    if (!isInitialized && news.length > 0) {
+      const ids = new Set(news.map(item => item.id));
+      setShownNewsIds(ids);
+      lastNewsIdsRef.current = ids;
+      setIsInitialized(true);
     }
-  }, [news]);
+  }, [news, isInitialized]);
 
-  // Detect new articles (check every time news updates)
+  // Detect new articles (only after initialization)
   useEffect(() => {
-    if (!initializedRef.current || news.length === 0) return;
+    if (!isInitialized || news.length === 0) return;
 
-    const newItems = news.filter(item => !shownNewsIds.has(item.id));
+    // Find articles that weren't in the last known set
+    const newItems = news.filter(item => !lastNewsIdsRef.current.has(item.id));
+
     if (newItems.length > 0) {
-      setPendingNews(prev => {
-        // Merge new items, avoiding duplicates
-        const existingIds = new Set(prev.map(p => p.id));
-        const uniqueNew = newItems.filter(item => !existingIds.has(item.id));
-        return [...uniqueNew, ...prev];
-      });
-      setNewArticlesCount(prev => prev + newItems.length);
+      // Update the count
+      setNewArticlesCount(newItems.length);
+      // Update lastNewsIdsRef to include new items for next comparison
+      newItems.forEach(item => lastNewsIdsRef.current.add(item.id));
     }
-  }, [news, shownNewsIds]);
+  }, [news, isInitialized]);
 
   // Handle showing new articles
   const handleShowNewArticles = () => {
-    // Add pending news IDs to shown set
-    setShownNewsIds(prev => {
-      const newSet = new Set(prev);
-      pendingNews.forEach(item => newSet.add(item.id));
-      // Also add any news items that might have come in
-      news.forEach(item => newSet.add(item.id));
-      return newSet;
-    });
-    setPendingNews([]);
+    // Add all current news to shown set
+    setShownNewsIds(new Set(news.map(item => item.id)));
     setNewArticlesCount(0);
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -435,6 +431,14 @@ function NewsFeed() {
 
   // Filter news based on active tab (only show "shown" articles)
   const filteredNews = useMemo(() => {
+    if (!isInitialized) {
+      // Before initialization, show all news
+      if (activeTab === 'following' && followedSources.length > 0) {
+        return news.filter(item => followedSources.includes(item.source));
+      }
+      return news;
+    }
+
     // Only show articles that have been "shown" (not pending)
     const shownNews = news.filter(item => shownNewsIds.has(item.id));
 
@@ -442,7 +446,7 @@ function NewsFeed() {
       return shownNews.filter(item => followedSources.includes(item.source));
     }
     return shownNews;
-  }, [news, activeTab, followedSources, shownNewsIds]);
+  }, [news, activeTab, followedSources, shownNewsIds, isInitialized]);
 
   // Increment view counts for displayed posts (once per session)
   const hasIncrementedViews = useRef(false);
@@ -720,12 +724,13 @@ function NewsFeed() {
     return () => observer.disconnect();
   }, [hasMore, loading, sortedNews.length]);
 
-  // Reset display count and new articles when switching tabs
+  // Reset display count and show new articles when switching tabs
   useEffect(() => {
     setDisplayCount(20);
-    // Also show any pending articles when switching tabs
+    // Show all articles when switching tabs
     if (newArticlesCount > 0) {
-      handleShowNewArticles();
+      setShownNewsIds(new Set(news.map(item => item.id)));
+      setNewArticlesCount(0);
     }
   }, [activeTab]);
 
