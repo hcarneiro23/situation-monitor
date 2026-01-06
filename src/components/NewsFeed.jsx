@@ -271,10 +271,49 @@ function NewsFeed() {
   const [loading, setLoading] = useState(false);
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
+  const [newPostsCount, setNewPostsCount] = useState(0);
+  const [lastSeenTimestamp, setLastSeenTimestamp] = useState(() => {
+    return localStorage.getItem('lastSeenNewsTimestamp') || null;
+  });
   const loaderRef = useRef(null);
+  const feedRef = useRef(null);
 
   // Filter news based on user's selected location
   const filteredNews = getNewsByUserLocation();
+
+  // Check for new posts on mount and when news updates
+  useEffect(() => {
+    if (!lastSeenTimestamp || filteredNews.length === 0) {
+      // First visit or no news - save current newest timestamp
+      if (filteredNews.length > 0) {
+        const newestTimestamp = Math.max(...filteredNews.map(n => new Date(n.pubDate).getTime() || 0));
+        localStorage.setItem('lastSeenNewsTimestamp', newestTimestamp.toString());
+        setLastSeenTimestamp(newestTimestamp.toString());
+      }
+      return;
+    }
+
+    const lastSeen = parseInt(lastSeenTimestamp);
+    const newPosts = filteredNews.filter(item => {
+      const itemTime = new Date(item.pubDate).getTime() || 0;
+      return itemTime > lastSeen;
+    });
+
+    setNewPostsCount(newPosts.length);
+  }, [filteredNews, lastSeenTimestamp]);
+
+  const handleShowNewPosts = () => {
+    // Update last seen timestamp to now
+    const newestTimestamp = Math.max(...filteredNews.map(n => new Date(n.pubDate).getTime() || 0));
+    localStorage.setItem('lastSeenNewsTimestamp', newestTimestamp.toString());
+    setLastSeenTimestamp(newestTimestamp.toString());
+    setNewPostsCount(0);
+
+    // Scroll to top
+    if (feedRef.current) {
+      feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Subscribe to all likes
   useEffect(() => {
@@ -387,8 +426,18 @@ function NewsFeed() {
         </div>
       </div>
 
+      {/* New posts banner */}
+      {newPostsCount > 0 && (
+        <button
+          onClick={handleShowNewPosts}
+          className="w-full py-3 text-blue-400 text-sm font-medium bg-intel-900/95 hover:bg-intel-800 border-b border-intel-700 transition-colors"
+        >
+          Show {newPostsCount} new {newPostsCount === 1 ? 'post' : 'posts'}
+        </button>
+      )}
+
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={feedRef} className="flex-1 overflow-y-auto">
         {sortedNews.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p className="text-lg">No news yet</p>
