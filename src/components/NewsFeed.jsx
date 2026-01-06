@@ -284,26 +284,20 @@ function NewsFeed() {
   const [likesMap, setLikesMap] = useState({});
   const [commentsMap, setCommentsMap] = useState({});
   const loaderRef = useRef(null);
-  const hasIncrementedViews = useRef(false);
 
   // Random seed for this session (changes on refresh)
   const [sessionSeed] = useState(() => Math.random());
 
-  // Track view counts per post (max 3 views)
+  // Track view counts per post (used for sorting, not filtering)
   const [postViewCounts, setPostViewCounts] = useState(() => {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
   // Filter news based on user's selected location
-  const allFilteredNews = getNewsByUserLocation();
-
-  // Filter out posts seen 3+ times
-  const filteredNews = allFilteredNews.filter(item => {
-    const viewCount = postViewCounts[item.id] || 0;
-    return viewCount < 3;
-  });
+  const filteredNews = getNewsByUserLocation();
 
   // Increment view counts for displayed posts (once per session)
+  const hasIncrementedViews = useRef(false);
   useEffect(() => {
     if (hasIncrementedViews.current || filteredNews.length === 0) return;
 
@@ -384,19 +378,23 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Sort by: relevance score + recency + randomization for variety
+  // Sort by: relevance + recency + randomization - penalize seen posts
   const sortedNews = useMemo(() => {
     return [...filteredNews].map(item => {
       const relevanceScore = getRelevanceScore(item);
       const recencyScore = Math.max(0, 1 - (Date.now() - new Date(item.pubDate).getTime()) / (24 * 60 * 60 * 1000 * 7)); // Decay over 7 days
       const randomFactor = (Math.sin(sessionSeed * 1000 + item.id.charCodeAt(0)) + 1) / 2; // Deterministic random per session
 
-      // Combined score: relevance (40%) + recency (40%) + random (20%)
-      const totalScore = (relevanceScore * 0.4) + (recencyScore * 0.4) + (randomFactor * 0.2);
+      // Penalize posts seen multiple times (less seen = higher score)
+      const viewCount = postViewCounts[item.id] || 0;
+      const freshnessScore = Math.max(0, 1 - (viewCount / 3)); // 0 views = 1, 3+ views = 0
+
+      // Combined score: freshness (30%) + relevance (30%) + recency (25%) + random (15%)
+      const totalScore = (freshnessScore * 0.3) + (relevanceScore * 0.3) + (recencyScore * 0.25) + (randomFactor * 0.15);
 
       return { ...item, _score: totalScore };
     }).sort((a, b) => b._score - a._score);
-  }, [filteredNews, sessionSeed, userInterests]);
+  }, [filteredNews, sessionSeed, userInterests, postViewCounts]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
