@@ -933,7 +933,7 @@ function NewsFeed() {
   };
 
   // Sort by combined score: trending (40%) + like history (60%)
-  // STRICT: First 30 positions = unseen posts ONLY (no repeats from last session)
+  // STRICT: First 7 positions = unseen posts ONLY (no repeats from last session)
   const sortedNews = useMemo(() => {
     const scored = [...filteredNews].map(item => {
       // Get like score from cache or calculate
@@ -958,19 +958,19 @@ function NewsFeed() {
     const unseenPosts = scored.filter(item => !item._wasSeen);
     const seenPosts = scored.filter(item => item._wasSeen);
 
-    // Build result: first 30 = ONLY unseen posts, after 30 = seen posts can appear
+    // Build result: first 7 = ONLY unseen posts, after 7 = seen posts can appear
     let result = [];
 
-    // First 30 positions: only unseen posts
-    const first30 = unseenPosts.slice(0, 30);
-    result.push(...first30);
+    // First 7 positions: only unseen posts
+    const first7 = unseenPosts.slice(0, 7);
+    result.push(...first7);
 
-    // Remaining unseen posts (if any beyond 30)
-    const remainingUnseen = unseenPosts.slice(30);
+    // Remaining unseen posts (if any beyond 7)
+    const remainingUnseen = unseenPosts.slice(7);
 
-    // After position 30: mix remaining unseen with seen posts, sorted by score
-    const afterFirst30 = [...remainingUnseen, ...seenPosts].sort((a, b) => b._score - a._score);
-    result.push(...afterFirst30);
+    // After position 7: mix remaining unseen with seen posts, sorted by score
+    const afterFirst7 = [...remainingUnseen, ...seenPosts].sort((a, b) => b._score - a._score);
+    result.push(...afterFirst7);
 
     // Apply source diversity - no more than 2 consecutive from same source
     return enforceSourceDiversity(result, 2);
@@ -979,13 +979,13 @@ function NewsFeed() {
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
 
-  // Mark first 30 displayed posts as seen (once per session)
+  // Mark first 7 displayed posts as seen (once per session)
   // Keeps last 2 sessions to avoid repeats for 3+ refreshes
   useEffect(() => {
     if (hasMarkedSeen.current || sortedNews.length === 0) return;
 
-    // Get first 30 post IDs from THIS session
-    const postsToMark = sortedNews.slice(0, 30).map(item => item.id);
+    // Get first 7 post IDs from THIS session
+    const postsToMark = sortedNews.slice(0, 7).map(item => item.id);
 
     // Add to in-memory set for this session
     postsToMark.forEach(id => seenPostIds.add(id));
