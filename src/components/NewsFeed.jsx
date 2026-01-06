@@ -598,9 +598,8 @@ function NewsFeed() {
       const viewCount = postViewCounts[item.id] || 0;
       const freshnessScore = Math.max(0, 1 - (viewCount / 3)); // 0 views = 1, 3+ views = 0
 
-      // Combined score: likes (80%) + country (8%) + interests (5%) + recency (4%) + freshness (2%) + random (1%)
-      // Likes-based recommendations dominate the feed
-      const totalScore = (likeScore * 0.80) + (countryScore * 0.08) + (relevanceScore * 0.05) + (recencyScore * 0.04) + (freshnessScore * 0.02) + (randomFactor * 0.01);
+      // Combined score: likes (100%) - feed is entirely based on like history
+      const totalScore = likeScore;
 
       newScores[item.id] = totalScore;
       return { ...item, _score: totalScore };
