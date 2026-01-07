@@ -65,12 +65,17 @@ function formatDate(dateStr) {
 function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount, isFollowing, onFollow }) {
   const [imgError, setImgError] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showFollowCheck, setShowFollowCheck] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likeData?.isLiked || false;
   const likeCount = likeData?.count || 0;
 
   const handleFollow = (e) => {
     e.stopPropagation();
+    if (!isFollowing) {
+      setShowFollowCheck(true);
+      setTimeout(() => setShowFollowCheck(false), 1000);
+    }
     onFollow(item.source);
   };
 
@@ -146,14 +151,18 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
               {getSourceInitials(item.source)}
             </div>
           )}
-          {/* Follow button */}
-          {!isFollowing && (
+          {/* Follow button / check animation */}
+          {(showFollowCheck || !isFollowing) && (
             <button
               onClick={handleFollow}
               className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center bg-blue-500 text-white shadow-sm border border-intel-900"
-              title="Follow source"
+              title={showFollowCheck ? 'Following' : 'Follow source'}
             >
-              <Plus className="w-2.5 h-2.5" strokeWidth={3} />
+              {showFollowCheck ? (
+                <Check className="w-2.5 h-2.5" strokeWidth={3} />
+              ) : (
+                <Plus className="w-2.5 h-2.5" strokeWidth={3} />
+              )}
             </button>
           )}
         </div>
