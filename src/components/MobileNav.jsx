@@ -1,17 +1,20 @@
 import React, { useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Search, TrendingUp, User } from 'lucide-react';
+import { Home, Search, TrendingUp, Bell } from 'lucide-react';
+import { useStore } from '../store/useStore';
 
 function MobileNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const readyToRefreshRef = useRef(false);
+  const { alerts } = useStore();
+  const unreadCount = alerts.filter(a => !a.read).length;
 
   const tabs = [
     { id: 'home', icon: Home, label: 'Home', path: '/' },
     { id: 'search', icon: Search, label: 'Search', path: '/search' },
     { id: 'trending', icon: TrendingUp, label: 'Trending', path: '/trending' },
-    { id: 'profile', icon: User, label: 'Profile', path: '/profile' },
+    { id: 'notifications', icon: Bell, label: 'Notifications', path: '/notifications' },
   ];
 
   const isActive = (path) => {
@@ -59,11 +62,18 @@ function MobileNav() {
             <button
               key={id}
               onClick={() => handleTabClick(id, path)}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors ${
                 active ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              <Icon className="w-5 h-5" />
+              <div className="relative">
+                <Icon className="w-5 h-5" />
+                {id === 'notifications' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-[10px] text-white flex items-center justify-center font-medium">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] mt-1">{label}</span>
             </button>
           );

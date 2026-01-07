@@ -14,6 +14,7 @@ import MobileNav from './components/MobileNav';
 import SearchPage from './components/SearchPage';
 import TrendingPage from './components/TrendingPage';
 import ProfilePage from './components/ProfilePage';
+import NotificationsPage from './components/NotificationsPage';
 import SearchBar from './components/SearchBar';
 
 // Backend URL - use environment variable for production, fallback to localhost for dev
@@ -217,6 +218,9 @@ function App() {
 
             {/* Profile page (mobile) */}
             <Route path="/profile" element={<ProfilePage />} />
+
+            {/* Notifications page */}
+            <Route path="/notifications" element={<NotificationsPage />} />
 
             {/* Main feed */}
             <Route path="*" element={
