@@ -1,17 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useStore } from '../store/useStore';
 import { useAuth } from '../context/AuthContext';
+import { notificationsService } from '../services/notifications';
 import { Bell, LogOut, User, Settings, ChevronDown } from 'lucide-react';
 
 function Header() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { alerts } = useStore();
   const { user, signOut } = useAuth();
-  const unreadCount = alerts.filter(a => !a.read).length;
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
+
+  // Subscribe to notifications for unread count
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const unsubscribe = notificationsService.subscribeToNotifications(user.uid, (notifs) => {
+      setUnreadCount(notifs.filter(n => !n.read).length);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Close menu when clicking outside
   useEffect(() => {

@@ -1,11 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../store/useStore';
-import { ArrowLeft, Bell, Check, Trash2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { notificationsService } from '../services/notifications';
+import { ArrowLeft, Bell, Check, Heart, User } from 'lucide-react';
 
 function NotificationsPage() {
   const navigate = useNavigate();
-  const { alerts, markAlertRead, clearAlerts } = useStore();
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+
+  // Subscribe to notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = notificationsService.subscribeToNotifications(user.uid, (notifs) => {
+      setNotifications(notifs);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
@@ -19,15 +32,18 @@ function NotificationsPage() {
     return date.toLocaleDateString();
   };
 
-  const markAllAsRead = () => {
-    alerts.forEach(alert => {
-      if (!alert.read) {
-        markAlertRead(alert.id);
-      }
-    });
+  const handleNotificationClick = async (notification) => {
+    // Mark as read
+    if (!notification.read) {
+      await notificationsService.markAsRead(notification.id);
+    }
+    // Navigate to the post
+    if (notification.postId) {
+      navigate(`/post/${notification.postId}`);
+    }
   };
 
-  const unreadCount = alerts.filter(a => !a.read).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="min-h-screen bg-intel-900 pb-16 lg:pb-0">
@@ -47,22 +63,7 @@ function NotificationsPage() {
           {/* Actions */}
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="p-2 rounded-full hover:bg-intel-700 transition-colors"
-                title="Mark all as read"
-              >
-                <Check className="w-5 h-5 text-gray-400" />
-              </button>
-            )}
-            {alerts.length > 0 && (
-              <button
-                onClick={clearAlerts}
-                className="p-2 rounded-full hover:bg-intel-700 transition-colors"
-                title="Clear all"
-              >
-                <Trash2 className="w-5 h-5 text-gray-400" />
-              </button>
+              <span className="text-sm text-gray-500">{unreadCount} new</span>
             )}
           </div>
         </div>
@@ -70,45 +71,57 @@ function NotificationsPage() {
 
       {/* Content */}
       <div className="max-w-2xl mx-auto">
-        {alerts.length === 0 ? (
+        {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 px-4">
             <div className="w-16 h-16 rounded-full bg-intel-800 flex items-center justify-center mb-4">
               <Bell className="w-8 h-8 text-gray-500" />
             </div>
             <h2 className="text-lg font-medium text-white mb-1">No notifications yet</h2>
             <p className="text-gray-500 text-center text-sm">
-              When you track topics or sources, you'll see alerts here when there's new activity.
+              When someone likes your replies, you'll see it here.
             </p>
           </div>
         ) : (
           <div className="divide-y divide-intel-700">
-            {alerts.map((alert) => (
+            {notifications.map((notification) => (
               <button
-                key={alert.id}
-                onClick={() => {
-                  markAlertRead(alert.id);
-                  if (alert.topicId) {
-                    navigate(`/topic/${encodeURIComponent(alert.title)}`);
-                  }
-                }}
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
                 className={`w-full flex items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-intel-800 ${
-                  !alert.read ? 'bg-intel-800/50' : ''
+                  !notification.read ? 'bg-intel-800/50' : ''
                 }`}
               >
-                {/* Unread indicator */}
-                <div className="pt-1.5">
-                  <div className={`w-2 h-2 rounded-full ${!alert.read ? 'bg-blue-400' : 'bg-transparent'}`} />
+                {/* User avatar or icon */}
+                <div className="flex-shrink-0">
+                  {notification.fromUserPhoto ? (
+                    <img
+                      src={notification.fromUserPhoto}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
+                      {notification.type === 'comment_like' ? (
+                        <Heart className="w-5 h-5 text-red-400" />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className={`font-medium ${!alert.read ? 'text-white' : 'text-gray-300'}`}>
-                      {alert.title}
+                    {!notification.read && (
+                      <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                    )}
+                    <p className={`font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                      {notification.title}
                     </p>
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">{alert.message}</p>
-                  <p className="text-xs text-gray-600 mt-1">{formatTime(alert.timestamp)}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{notification.message}</p>
+                  <p className="text-xs text-gray-600 mt-1">{formatTime(notification.createdAt)}</p>
                 </div>
               </button>
             ))}

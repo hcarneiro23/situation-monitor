@@ -10,8 +10,10 @@ import {
   onSnapshot,
   getDocs
 } from 'firebase/firestore';
+import { notificationsService } from './notifications';
 
 const COLLECTION_NAME = 'likes';
+const COMMENT_LIKES_COLLECTION = 'commentLikes';
 
 // Extract keywords from text for recommendation
 function extractKeywords(text) {
@@ -145,5 +147,94 @@ export const likesService = {
 
       callback(profile);
     });
+  },
+
+  // Toggle like for a comment
+  async toggleCommentLike(commentId, userId, commentData = {}) {
+    if (!commentId || !userId) {
+      console.error('[Likes] Missing commentId or userId:', { commentId, userId });
+      return null;
+    }
+
+    const likeId = `${commentId}_${userId}`;
+    const likeRef = doc(db, COMMENT_LIKES_COLLECTION, likeId);
+
+    try {
+      const docSnap = await getDoc(likeRef);
+
+      if (!docSnap.exists()) {
+        // Add like
+        await setDoc(likeRef, {
+          commentId,
+          userId,
+          createdAt: new Date().toISOString()
+        });
+
+        // Send notification to comment author
+        if (commentData.authorId && commentData.authorId !== userId) {
+          await notificationsService.createNotification({
+            userId: commentData.authorId,
+            type: 'comment_like',
+            title: 'New like on your reply',
+            message: `${commentData.likerName || 'Someone'} liked your reply`,
+            postId: commentData.postId,
+            fromUserId: userId,
+            fromUserName: commentData.likerName,
+            fromUserPhoto: commentData.likerPhoto
+          });
+        }
+
+        return true; // liked
+      } else {
+        // Remove like
+        await deleteDoc(likeRef);
+        return false; // unliked
+      }
+    } catch (error) {
+      console.error('[Likes] Error toggling comment like:', error);
+      throw error;
+    }
+  },
+
+  // Subscribe to likes for a specific comment
+  subscribeToCommentLikes(commentId, callback) {
+    const q = query(
+      collection(db, COMMENT_LIKES_COLLECTION),
+      where('commentId', '==', commentId)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const likes = snapshot.docs.map(doc => doc.data());
+      callback({
+        count: likes.length,
+        userIds: likes.map(l => l.userId)
+      });
+    });
+  },
+
+  // Subscribe to all comment likes for a post's comments
+  subscribeToAllCommentLikes(commentIds, callback) {
+    if (!commentIds || commentIds.length === 0) {
+      callback({});
+      return () => {};
+    }
+
+    return onSnapshot(
+      collection(db, COMMENT_LIKES_COLLECTION),
+      (snapshot) => {
+        const likesMap = {};
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (commentIds.includes(data.commentId)) {
+            if (!likesMap[data.commentId]) {
+              likesMap[data.commentId] = { count: 0, userIds: [] };
+            }
+            likesMap[data.commentId].count++;
+            likesMap[data.commentId].userIds.push(data.userId);
+          }
+        });
+        callback(likesMap);
+      }
+    );
   }
 };

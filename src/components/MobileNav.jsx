@@ -1,13 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Search, TrendingUp, Bell } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { useAuth } from '../context/AuthContext';
+import { notificationsService } from '../services/notifications';
 
 function MobileNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { alerts } = useStore();
-  const unreadCount = alerts.filter(a => !a.read).length;
+  const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Subscribe to notifications for unread count
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const unsubscribe = notificationsService.subscribeToNotifications(user.uid, (notifs) => {
+      setUnreadCount(notifs.filter(n => !n.read).length);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const tabs = [
     { id: 'home', icon: Home, label: 'Home', path: '/' },

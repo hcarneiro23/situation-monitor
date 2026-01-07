@@ -76,9 +76,12 @@ function formatFullDate(dateStr) {
 }
 
 // Recursive comment component
-function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingToId, onStartReply, onCancelReply, onSubmitReply, replyText, setReplyText, submitting }) {
+function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingToId, onStartReply, onCancelReply, onSubmitReply, replyText, setReplyText, submitting, onLikeComment, commentLikesMap }) {
   const isNested = depth > 0;
   const isReplying = replyingToId === comment.id;
+  const likeData = commentLikesMap?.[comment.id] || { count: 0, userIds: [] };
+  const isLiked = user ? likeData.userIds.includes(user.uid) : false;
+  const likeCount = likeData.count;
 
   return (
     <div className={`${isNested ? 'ml-8 border-l border-intel-700 pl-4' : ''}`}>
@@ -110,6 +113,16 @@ function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingT
 
             {/* Action buttons */}
             <div className="flex items-center gap-4 mt-2">
+              {/* Like button */}
+              <button
+                onClick={() => onLikeComment(comment)}
+                className={`flex items-center gap-1 transition-colors text-sm ${
+                  isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-400'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500' : ''}`} />
+                {likeCount > 0 && <span>{likeCount}</span>}
+              </button>
               <button
                 onClick={() => onStartReply(comment)}
                 className="flex items-center gap-1 text-gray-500 hover:text-blue-400 transition-colors text-sm"
@@ -196,6 +209,8 @@ function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingT
               replyText={replyText}
               setReplyText={setReplyText}
               submitting={submitting}
+              onLikeComment={onLikeComment}
+              commentLikesMap={commentLikesMap}
             />
           ))}
         </div>
@@ -216,6 +231,7 @@ function PostDetail() {
   const [replyingToId, setReplyingToId] = useState(null); // comment id for nested replies
   const [likesData, setLikesData] = useState({ count: 0, userIds: [] });
   const [isLikeAnimating, setIsLikeAnimating] = useState(false);
+  const [commentLikesMap, setCommentLikesMap] = useState({});
 
   // Find the post by ID
   const post = news.find(item => item.id === postId);
@@ -241,6 +257,45 @@ function PostDetail() {
 
     return () => unsubscribe();
   }, [postId]);
+
+  // Subscribe to comment likes
+  useEffect(() => {
+    if (!postComments || postComments.length === 0) return;
+
+    // Collect all comment IDs (including nested replies)
+    const getAllCommentIds = (comments) => {
+      let ids = [];
+      comments.forEach(c => {
+        ids.push(c.id);
+        if (c.replies && c.replies.length > 0) {
+          ids = ids.concat(getAllCommentIds(c.replies));
+        }
+      });
+      return ids;
+    };
+
+    const commentIds = getAllCommentIds(postComments);
+    const unsubscribe = likesService.subscribeToAllCommentLikes(commentIds, (likesMap) => {
+      setCommentLikesMap(likesMap);
+    });
+
+    return () => unsubscribe();
+  }, [postComments]);
+
+  // Handle liking a comment
+  const handleLikeComment = async (comment) => {
+    if (!user) return;
+    try {
+      await likesService.toggleCommentLike(comment.id, user.uid, {
+        authorId: comment.authorId,
+        postId: postId,
+        likerName: user.displayName || user.email,
+        likerPhoto: user.photoURL
+      });
+    } catch (err) {
+      console.error('Failed to toggle comment like:', err);
+    }
+  };
 
   if (!post) {
     return (
@@ -569,6 +624,8 @@ function PostDetail() {
                   replyText={replyText}
                   setReplyText={setReplyText}
                   submitting={submitting}
+                  onLikeComment={handleLikeComment}
+                  commentLikesMap={commentLikesMap}
                 />
               ))
             )}
