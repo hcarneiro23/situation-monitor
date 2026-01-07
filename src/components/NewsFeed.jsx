@@ -130,7 +130,7 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
     >
       <div className="flex gap-3">
         {/* Source avatar with follow button */}
-        <div className="flex-shrink-0 relative" onClick={(e) => e.stopPropagation()}>
+        <div className="flex-shrink-0 relative w-10 h-10" onClick={(e) => e.stopPropagation()}>
           {logoUrl && !imgError ? (
             <img
               src={logoUrl}
@@ -150,7 +150,7 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
           {!isFollowing && (
             <button
               onClick={handleFollow}
-              className="absolute bottom-0 right-0 w-4 h-4 rounded-full flex items-center justify-center bg-blue-500 text-white shadow-sm"
+              className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center bg-blue-500 text-white shadow-sm border border-intel-900"
               title="Follow source"
             >
               <Plus className="w-2.5 h-2.5" strokeWidth={3} />
