@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { ArrowLeft, Heart, Share, ExternalLink, Bookmark, BookmarkCheck, Trash2, User, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Heart, Share, ExternalLink, Eye, EyeOff, Trash2, User, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { commentsService } from '../services/comments';
@@ -413,12 +413,12 @@ function PostDetail() {
                 <button
                   onClick={handleBookmark}
                   className="p-2 rounded-full hover:bg-intel-700 transition-colors"
-                  title={isBookmarked ? 'Remove from watchlist' : 'Add to watchlist'}
+                  title={isBookmarked ? 'Stop tracking' : 'Track similar stories'}
                 >
                   {isBookmarked ? (
-                    <BookmarkCheck className="w-5 h-5 text-blue-400" />
+                    <Eye className="w-5 h-5 text-blue-400" />
                   ) : (
-                    <Bookmark className="w-5 h-5 text-gray-500" />
+                    <EyeOff className="w-5 h-5 text-gray-500" />
                   )}
                 </button>
               </div>

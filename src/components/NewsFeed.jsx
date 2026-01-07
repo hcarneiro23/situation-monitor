@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Heart, Share, ExternalLink, Bell, BellRing } from 'lucide-react';
+import { MessageCircle, Heart, Share, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { likesService } from '../services/likes';
 import { commentsService } from '../services/comments';
@@ -157,9 +157,9 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
                 title={isBookmarked ? 'Stop tracking' : 'Track similar stories'}
               >
                 {isBookmarked ? (
-                  <BellRing className="w-4 h-4 text-blue-400" />
+                  <Eye className="w-4 h-4 text-blue-400" />
                 ) : (
-                  <Bell className="w-4 h-4 text-gray-500" />
+                  <EyeOff className="w-4 h-4 text-gray-500" />
                 )}
               </button>
             </div>
