@@ -5,6 +5,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  updateProfile as firebaseUpdateProfile,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 import { useStore } from '../store/useStore';
@@ -87,6 +88,19 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateProfile = async ({ displayName, photoURL }) => {
+    setError(null);
+    try {
+      if (!auth.currentUser) throw new Error('No user logged in');
+      await firebaseUpdateProfile(auth.currentUser, { displayName, photoURL });
+      // Force refresh user state
+      setUser({ ...auth.currentUser });
+    } catch (err) {
+      setError(err.message || 'Failed to update profile');
+      throw err;
+    }
+  };
+
   const clearError = () => setError(null);
 
   const value = {
@@ -97,6 +111,7 @@ export function AuthProvider({ children }) {
     signUp,
     signInWithGoogle,
     signOut,
+    updateProfile,
     clearError,
   };
 
