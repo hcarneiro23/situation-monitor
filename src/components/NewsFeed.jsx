@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { MessageCircle, Heart, Share, ExternalLink, Eye } from 'lucide-react';
+import { MessageCircle, Heart, Share, ExternalLink, Eye, Plus, Check } from 'lucide-react';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { likesService } from '../services/likes';
 import { commentsService } from '../services/comments';
@@ -62,12 +62,17 @@ function formatDate(dateStr) {
 }
 
 // Tweet-like news item component
-function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount }) {
+function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData, replyCount, isFollowing, onFollow }) {
   const [imgError, setImgError] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const logoUrl = getSourceLogo(item.link);
   const isLiked = likeData?.isLiked || false;
   const likeCount = likeData?.count || 0;
+
+  const handleFollow = (e) => {
+    e.stopPropagation();
+    onFollow(item.source);
+  };
 
   const handleClick = () => {
     onNavigate(item.id);
@@ -124,8 +129,8 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
       onClick={handleClick}
     >
       <div className="flex gap-3">
-        {/* Source avatar */}
-        <div className="flex-shrink-0">
+        {/* Source avatar with follow button */}
+        <div className="flex-shrink-0 relative" onClick={(e) => e.stopPropagation()}>
           {logoUrl && !imgError ? (
             <img
               src={logoUrl}
@@ -141,6 +146,22 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
               {getSourceInitials(item.source)}
             </div>
           )}
+          {/* Follow button */}
+          <button
+            onClick={handleFollow}
+            className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+              isFollowing
+                ? 'bg-blue-500 text-white'
+                : 'bg-intel-900 border-2 border-intel-700 text-gray-400 hover:border-blue-500 hover:text-blue-400'
+            }`}
+            title={isFollowing ? 'Following' : 'Follow source'}
+          >
+            {isFollowing ? (
+              <Check className="w-3 h-3" />
+            ) : (
+              <Plus className="w-3 h-3" />
+            )}
+          </button>
         </div>
 
         {/* Content */}
@@ -543,7 +564,7 @@ const UK_SOURCES = [
 function NewsFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests, followedSources, userCity } = useStore();
+  const { news, addToWatchlist, removeFromWatchlist, isInWatchlist, userInterests, followedSources, setFollowedSources, userCity } = useStore();
 
   // Get user's country and region from their city
   const userCountry = useMemo(() => {
@@ -1079,6 +1100,16 @@ function NewsFeed() {
     }
   };
 
+  // Handle follow/unfollow source
+  const handleFollowSource = (source) => {
+    const current = followedSources || [];
+    if (current.includes(source)) {
+      setFollowedSources(current.filter(s => s !== source));
+    } else {
+      setFollowedSources([...current, source]);
+    }
+  };
+
   // Infinite scroll using Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -1201,6 +1232,8 @@ function NewsFeed() {
                     isLiked: user ? postLikes.userIds.includes(user.uid) : false
                   }}
                   replyCount={commentsMap[item.id] || 0}
+                  isFollowing={followedSources?.includes(item.source)}
+                  onFollow={handleFollowSource}
                 />
               );
             })}
