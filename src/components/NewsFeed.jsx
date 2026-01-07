@@ -660,6 +660,24 @@ function NewsFeed() {
     });
   };
 
+  // Listen for external trigger to load new posts (from Header/MobileNav)
+  useEffect(() => {
+    const handleLoadNewPosts = () => {
+      if (pendingNewIds.size > 0) {
+        handleShowNewArticles();
+      } else {
+        // Even if no pending posts, scroll to top
+        const feedContainer = document.getElementById('news-feed-scroll');
+        if (feedContainer) {
+          feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    };
+
+    window.addEventListener('loadNewPosts', handleLoadNewPosts);
+    return () => window.removeEventListener('loadNewPosts', handleLoadNewPosts);
+  }, [pendingNewIds]);
+
   // Filter news based on active tab (only show "shown" articles)
   const filteredNews = useMemo(() => {
     if (!isInitialized) {

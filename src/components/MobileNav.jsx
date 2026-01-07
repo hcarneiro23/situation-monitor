@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Search, TrendingUp, Bell } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -6,7 +6,6 @@ import { useStore } from '../store/useStore';
 function MobileNav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const readyToRefreshRef = useRef(false);
   const { alerts } = useStore();
   const unreadCount = alerts.filter(a => !a.read).length;
 
@@ -26,29 +25,14 @@ function MobileNav() {
 
   const handleTabClick = (id, path) => {
     if (id === 'home') {
-      const feedContainer = document.getElementById('news-feed-scroll');
-      const scrollTop = feedContainer ? feedContainer.scrollTop : window.scrollY;
-      const isAtTop = scrollTop < 50;
-
-      if (location.pathname === '/' && isAtTop && readyToRefreshRef.current) {
-        // Second click while at top - refresh the page
-        readyToRefreshRef.current = false;
-        window.location.reload();
-      } else if (location.pathname === '/') {
-        // First click or not at top - scroll to top
-        if (feedContainer) {
-          feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        readyToRefreshRef.current = true;
+      if (location.pathname === '/') {
+        // Already on home - trigger load new posts
+        window.dispatchEvent(new CustomEvent('loadNewPosts'));
       } else {
-        // Not on home page - navigate to home
-        readyToRefreshRef.current = false;
+        // Navigate to home
         navigate(path);
       }
     } else {
-      readyToRefreshRef.current = false;
       navigate(path);
     }
   };
