@@ -86,9 +86,17 @@ function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingT
         <div className="flex gap-3">
           {/* Comment author avatar */}
           <div className="flex-shrink-0">
-            <div className={`${isNested ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-intel-700 flex items-center justify-center`}>
-              <User className={`${isNested ? 'w-4 h-4' : 'w-5 h-5'} text-gray-400`} />
-            </div>
+            {comment.authorPhotoURL ? (
+              <img
+                src={comment.authorPhotoURL}
+                alt=""
+                className={`${isNested ? 'w-8 h-8' : 'w-10 h-10'} rounded-full object-cover`}
+              />
+            ) : (
+              <div className={`${isNested ? 'w-8 h-8' : 'w-10 h-10'} rounded-full bg-intel-700 flex items-center justify-center`}>
+                <User className={`${isNested ? 'w-4 h-4' : 'w-5 h-5'} text-gray-400`} />
+              </div>
+            )}
           </div>
 
           {/* Comment content */}
@@ -340,6 +348,7 @@ function PostDetail() {
         text: replyText.trim(),
         author: user?.displayName || user?.email || 'Anonymous',
         authorId: user?.uid || null,
+        authorPhotoURL: user?.photoURL || null,
         parentId
       });
       setReplyText('');

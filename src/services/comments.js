@@ -14,12 +14,13 @@ const COLLECTION_NAME = 'comments';
 
 export const commentsService = {
   // Add a new comment (parentId for replies)
-  async addComment(postId, { text, author, authorId, parentId = null }) {
+  async addComment(postId, { text, author, authorId, authorPhotoURL = null, parentId = null }) {
     const docRef = await addDoc(collection(db, COLLECTION_NAME), {
       postId,
       text,
       author,
       authorId,
+      authorPhotoURL,
       parentId,
       createdAt: serverTimestamp()
     });
