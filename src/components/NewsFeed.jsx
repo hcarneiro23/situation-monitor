@@ -1134,9 +1134,6 @@ function NewsFeed() {
             }`}
           >
             Following
-            {followedSources.length > 0 && (
-              <span className="ml-1 text-xs text-gray-500">({followedSources.length})</span>
-            )}
             {activeTab === 'following' && (
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-blue-500 rounded-full" />
             )}
