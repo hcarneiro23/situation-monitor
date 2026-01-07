@@ -1856,7 +1856,7 @@ export const newsAggregator = {
     });
 
     // Increased limit to accommodate expanded sources
-    const result = processedItems.slice(0, 5000);
+    const result = processedItems.slice(0, 1000);
     cache.set('news', result);
 
     return result;
