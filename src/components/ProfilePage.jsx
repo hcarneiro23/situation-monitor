@@ -183,18 +183,6 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex border-b border-intel-700">
-          <div className="flex-1 py-4 text-center border-r border-intel-700">
-            <p className="text-white font-bold text-xl">{trackedPosts.length}</p>
-            <p className="text-gray-500 text-sm">Tracking</p>
-          </div>
-          <div className="flex-1 py-4 text-center">
-            <p className="text-white font-bold text-xl">{followedSources?.length || 0}</p>
-            <p className="text-gray-500 text-sm">Following</p>
-          </div>
-        </div>
-
         {/* Settings */}
         <div className="py-2">
           {/* Tracked Posts */}
