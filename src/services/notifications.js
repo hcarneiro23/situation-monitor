@@ -6,10 +6,8 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
-  serverTimestamp,
-  writeBatch
+  serverTimestamp
 } from 'firebase/firestore';
 
 const COLLECTION_NAME = 'notifications';
@@ -19,58 +17,64 @@ export const notificationsService = {
   async createNotification({ userId, type, title, message, postId, fromUserId, fromUserName, fromUserPhoto }) {
     if (!userId || userId === fromUserId) return null; // Don't notify yourself
 
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-      userId,
-      type,
-      title,
-      message,
-      postId,
-      fromUserId,
-      fromUserName,
-      fromUserPhoto,
-      read: false,
-      createdAt: serverTimestamp()
-    });
-    return docRef.id;
+    try {
+      const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+        userId,
+        type,
+        title,
+        message,
+        postId,
+        fromUserId,
+        fromUserName,
+        fromUserPhoto,
+        read: false,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('[Notifications] Error creating notification:', error);
+      return null;
+    }
   },
 
   // Mark notification as read
   async markAsRead(notificationId) {
-    const notifRef = doc(db, COLLECTION_NAME, notificationId);
-    await updateDoc(notifRef, { read: true });
-  },
-
-  // Mark all notifications as read for a user
-  async markAllAsRead(userId) {
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('userId', '==', userId),
-      where('read', '==', false)
-    );
-
-    const snapshot = await q.get();
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { read: true });
-    });
-    await batch.commit();
+    try {
+      const notifRef = doc(db, COLLECTION_NAME, notificationId);
+      await updateDoc(notifRef, { read: true });
+    } catch (error) {
+      console.error('[Notifications] Error marking as read:', error);
+    }
   },
 
   // Subscribe to notifications for a user
   subscribeToNotifications(userId, callback) {
+    if (!userId) {
+      callback([]);
+      return () => {};
+    }
+
     const q = query(
       collection(db, COLLECTION_NAME),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
 
-    return onSnapshot(q, (snapshot) => {
-      const notifications = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
-      }));
-      callback(notifications);
-    });
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const notifications = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+        }));
+        // Sort by createdAt descending (newest first)
+        notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        callback(notifications);
+      },
+      (error) => {
+        console.error('[Notifications] Error subscribing:', error);
+        callback([]);
+      }
+    );
   }
 };

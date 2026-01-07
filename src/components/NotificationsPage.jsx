@@ -78,7 +78,7 @@ function NotificationsPage() {
             </div>
             <h2 className="text-lg font-medium text-white mb-1">No notifications yet</h2>
             <p className="text-gray-500 text-center text-sm">
-              When someone likes your replies, you'll see it here.
+              You'll see activity and updates here.
             </p>
           </div>
         ) : (
