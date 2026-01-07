@@ -147,21 +147,15 @@ function NewsItem({ item, onLike, onBookmark, isBookmarked, onNavigate, likeData
             </div>
           )}
           {/* Follow button */}
-          <button
-            onClick={handleFollow}
-            className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
-              isFollowing
-                ? 'bg-blue-500 text-white'
-                : 'bg-intel-900 border-2 border-intel-700 text-gray-400 hover:border-blue-500 hover:text-blue-400'
-            }`}
-            title={isFollowing ? 'Following' : 'Follow source'}
-          >
-            {isFollowing ? (
-              <Check className="w-3 h-3" />
-            ) : (
-              <Plus className="w-3 h-3" />
-            )}
-          </button>
+          {!isFollowing && (
+            <button
+              onClick={handleFollow}
+              className="absolute bottom-0 right-0 w-4 h-4 rounded-full flex items-center justify-center bg-blue-500 text-white shadow-sm"
+              title="Follow source"
+            >
+              <Plus className="w-2.5 h-2.5" strokeWidth={3} />
+            </button>
+          )}
         </div>
 
         {/* Content */}
