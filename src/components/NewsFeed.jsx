@@ -598,23 +598,6 @@ function NewsFeed() {
     return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
   });
 
-  // Track posts from LAST 2 SESSIONS to avoid repeats
-  // This ensures 3+ different views before any posts can repeat
-  const [seenPostIds] = useState(() => {
-    const session1 = localStorage.getItem('lastSessionPosts1') || '[]';
-    const session2 = localStorage.getItem('lastSessionPosts2') || '[]';
-    try {
-      const ids1 = JSON.parse(session1);
-      const ids2 = JSON.parse(session2);
-      return new Set([...ids1, ...ids2]);
-    } catch (e) {
-      return new Set();
-    }
-  });
-
-  // Mark posts as seen when displayed (runs once per session)
-  const hasMarkedSeen = useRef(false);
-
   // Store the initial news IDs on first load
   const lastNewsIdsRef = useRef(new Set());
 
@@ -717,31 +700,6 @@ function NewsFeed() {
     return shownNews;
   }, [news, activeTab, followedSources, shownNewsIds, isInitialized]);
 
-  // Extract trending phrases from all news (not just filtered)
-  const trendingPhrases = useMemo(() => {
-    return extractTrendingPhrases(news);
-  }, [news]);
-
-  // Calculate trending score for a post
-  const getTrendingScore = (item) => {
-    if (trendingPhrases.length === 0) return 0;
-
-    const text = `${item.title} ${item.summary || ''}`.toLowerCase();
-    let score = 0;
-    const maxPhraseCount = trendingPhrases[0]?.count || 1; // Highest trending count
-
-    trendingPhrases.forEach(({ phrase, count }) => {
-      const words = phrase.split(' ');
-      if (words.every(word => text.includes(word))) {
-        // Weight by how trending the phrase is (normalized by max count)
-        score += count / maxPhraseCount;
-      }
-    });
-
-    // Normalize to 0-1 (cap contribution)
-    return Math.min(score / 3, 1);
-  };
-
   // Increment view counts for displayed posts (once per session)
   const hasIncrementedViews = useRef(false);
   useEffect(() => {
@@ -838,45 +796,6 @@ function NewsFeed() {
     return 0;
   };
 
-  // Calculate like-based recommendation score
-  const getLikeScore = (item) => {
-    if (!userLikeProfile || userLikeProfile.totalLikes === 0) return 0;
-
-    // Already-liked posts get neutral score - don't pin them to top
-    if (userLikeProfile.likedPostIds?.includes(item.id)) {
-      return 0;
-    }
-
-    let score = 0;
-    const maxScore = 3; // For normalization
-
-    // Source match: if user liked posts from this source before
-    if (item.source && userLikeProfile.likedSources[item.source]) {
-      const sourceWeight = Math.min(userLikeProfile.likedSources[item.source] / 3, 1); // Cap at 3 likes
-      score += sourceWeight;
-    }
-
-    // Category match: if user liked posts from this category
-    if (item.category && userLikeProfile.likedCategories[item.category]) {
-      const categoryWeight = Math.min(userLikeProfile.likedCategories[item.category] / 3, 1);
-      score += categoryWeight;
-    }
-
-    // Keyword match: check how many liked keywords appear in this post
-    const postText = `${item.title} ${item.summary || ''}`.toLowerCase();
-    let keywordMatches = 0;
-    Object.entries(userLikeProfile.likedKeywords).forEach(([keyword, count]) => {
-      if (postText.includes(keyword)) {
-        keywordMatches += Math.min(count, 2); // Cap contribution per keyword
-      }
-    });
-    if (keywordMatches > 0) {
-      score += Math.min(keywordMatches / 5, 1); // Normalize keyword score
-    }
-
-    return Math.min(score / maxScore, 1); // Normalize to 0-1
-  };
-
   // Subscribe to all likes
   useEffect(() => {
     const unsubscribe = likesService.subscribeToAllLikes((likes) => {
@@ -927,32 +846,6 @@ function NewsFeed() {
     navigate(`/post/${postId}`);
   };
 
-  // Track if scores have been calculated with a valid profile
-  const [scoresCalculated, setScoresCalculated] = useState(false);
-  const stableScoresRef = useRef({});
-  const lastProfileLikesRef = useRef(0);
-
-  // Calculate scores when profile is ready with actual likes
-  useEffect(() => {
-    if (!userLikeProfile || filteredNews.length === 0) return;
-
-    // Only recalculate if:
-    // 1. Scores haven't been calculated yet, OR
-    // 2. Profile has significantly more likes (page refresh, not single like)
-    const likeDiff = userLikeProfile.totalLikes - lastProfileLikesRef.current;
-    const shouldRecalculate = !scoresCalculated || likeDiff > 1 || likeDiff < 0;
-
-    if (shouldRecalculate) {
-      console.log('[Feed] Calculating scores, totalLikes:', userLikeProfile.totalLikes);
-      stableScoresRef.current = {};
-      filteredNews.forEach(item => {
-        stableScoresRef.current[item.id] = getLikeScore(item);
-      });
-      lastProfileLikesRef.current = userLikeProfile.totalLikes;
-      setScoresCalculated(true);
-    }
-  }, [userLikeProfile, filteredNews.length, scoresCalculated]);
-
   // Enforce max consecutive items from same source
   const enforceSourceDiversity = (items, maxConsecutive = 2) => {
     if (items.length <= maxConsecutive) return items;
@@ -996,83 +889,29 @@ function NewsFeed() {
     return result;
   };
 
-  // Sort by combined score: trending (40%) + like history (60%)
-  // PRIORITY: Just revealed posts appear at top, then unseen posts, then seen posts
+  // Sort by most recent (pubDate)
+  // Just revealed posts appear at top, then all posts sorted by date
   const sortedNews = useMemo(() => {
-    const scored = [...filteredNews].map(item => {
-      // Get like score from cache or calculate
-      if (stableScoresRef.current[item.id] === undefined) {
-        stableScoresRef.current[item.id] = getLikeScore(item);
-      }
-      const likeScore = stableScoresRef.current[item.id];
-
-      // Calculate trending score
-      const trendingScore = getTrendingScore(item);
-
-      // Combined score: trending gets 40% weight, likes get 60%
-      const combinedScore = (trendingScore * 0.4) + (likeScore * 0.6);
-
-      // Mark if this post was seen in previous sessions
-      const wasSeen = seenPostIds.has(item.id);
-
-      // Mark if this post was just revealed (clicked "Show new posts")
-      const wasJustRevealed = justRevealedIds.has(item.id);
-
-      return { ...item, _score: combinedScore, _trendingScore: trendingScore, _likeScore: likeScore, _wasSeen: wasSeen, _justRevealed: wasJustRevealed };
-    }).sort((a, b) => b._score - a._score);
-
-    // Separate into three groups: just revealed, unseen, and seen
-    const justRevealedPosts = scored.filter(item => item._justRevealed).sort((a, b) => {
-      // Sort just revealed by pubDate (newest first)
+    // Sort all posts by pubDate (newest first)
+    const byDate = [...filteredNews].sort((a, b) => {
       const dateA = new Date(a.pubDate || 0);
       const dateB = new Date(b.pubDate || 0);
       return dateB - dateA;
     });
-    const unseenPosts = scored.filter(item => !item._justRevealed && !item._wasSeen);
-    const seenPosts = scored.filter(item => !item._justRevealed && item._wasSeen);
 
-    // Build result: just revealed first, then unseen (up to 7), then rest
-    let result = [];
+    // Separate just revealed posts (clicked "Show new posts")
+    const justRevealedPosts = byDate.filter(item => justRevealedIds.has(item.id));
+    const otherPosts = byDate.filter(item => !justRevealedIds.has(item.id));
 
-    // Just revealed posts go at the very top
-    result.push(...justRevealedPosts);
-
-    // Then first 7 unseen posts
-    const first7Unseen = unseenPosts.slice(0, 7);
-    result.push(...first7Unseen);
-
-    // Remaining unseen posts (if any beyond 7)
-    const remainingUnseen = unseenPosts.slice(7);
-
-    // After that: mix remaining unseen with seen posts, sorted by score
-    const afterFirst7 = [...remainingUnseen, ...seenPosts].sort((a, b) => b._score - a._score);
-    result.push(...afterFirst7);
+    // Just revealed posts go at the very top, then the rest by date
+    const result = [...justRevealedPosts, ...otherPosts];
 
     // Apply source diversity - no more than 2 consecutive from same source
     return enforceSourceDiversity(result, 2);
-  }, [filteredNews, scoresCalculated, trendingPhrases, seenPostIds, justRevealedIds]);
+  }, [filteredNews, justRevealedIds]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
-
-  // Mark first 7 displayed posts as seen (once per session)
-  // Keeps last 2 sessions to avoid repeats for 3+ refreshes
-  useEffect(() => {
-    if (hasMarkedSeen.current || sortedNews.length === 0) return;
-
-    // Get first 7 post IDs from THIS session
-    const postsToMark = sortedNews.slice(0, 7).map(item => item.id);
-
-    // Add to in-memory set for this session
-    postsToMark.forEach(id => seenPostIds.add(id));
-
-    // Shift sessions: session1 -> session2, current -> session1
-    const prevSession1 = localStorage.getItem('lastSessionPosts1') || '[]';
-    localStorage.setItem('lastSessionPosts2', prevSession1);
-    localStorage.setItem('lastSessionPosts1', JSON.stringify(postsToMark));
-
-    hasMarkedSeen.current = true;
-  }, [sortedNews, seenPostIds]);
 
   // Handle like toggle - pass post data for recommendations
   const handleLike = async (itemId, postData) => {
