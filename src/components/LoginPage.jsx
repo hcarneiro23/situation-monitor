@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
 function LoginPage() {
   const { signIn, signUp, signInWithGoogle, error, clearError } = useAuth();
@@ -70,9 +70,6 @@ function LoginPage() {
       <div className="w-full max-w-md relative">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-intel-800 border border-intel-600 mb-4">
-            <Shield className="w-8 h-8 text-accent-blue" />
-          </div>
           <h1 className="text-2xl font-bold text-white">Routers</h1>
           <p className="text-gray-500 text-sm mt-1">Stay informed</p>
         </div>
