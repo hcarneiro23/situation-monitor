@@ -73,8 +73,8 @@ function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-intel-800 border border-intel-600 mb-4">
             <Shield className="w-8 h-8 text-accent-blue" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Situation Monitor</h1>
-          <p className="text-gray-500 text-sm mt-1">Intelligence Console</p>
+          <h1 className="text-2xl font-bold text-white">Routers</h1>
+          <p className="text-gray-500 text-sm mt-1">Stay informed</p>
         </div>
 
         {/* Login Card */}
