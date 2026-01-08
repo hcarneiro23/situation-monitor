@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { userPreferencesService } from '../services/userPreferences';
+import { notificationsService } from '../services/notifications';
 
 export const useStore = create((set, get) => ({
   // Data state
@@ -236,9 +237,9 @@ export const useStore = create((set, get) => ({
       .slice(0, 5);
   },
 
-  // Check all tracked posts for new similar news and create alerts
+  // Check all tracked posts for new similar news and create notifications
   checkTrackedPostsForUpdates: () => {
-    const { watchlist, news, addAlert } = get();
+    const { watchlist, news, currentUserId } = get();
     const trackedPosts = watchlist.filter(item => item.type === 'news');
     let updated = false;
 
@@ -254,14 +255,16 @@ export const useStore = create((set, get) => ({
         const matchScore = matchCount / tracked.keywords.length;
 
         if (matchScore >= 0.3) {
-          // Create alert for similar news
-          addAlert({
-            type: 'tracked',
-            title: 'Similar story found',
-            message: item.title.slice(0, 80) + (item.title.length > 80 ? '...' : ''),
-            severity: matchScore >= 0.5 ? 'high' : 'medium',
-            relatedItem: { trackedId: tracked.id, newsId: item.id, source: item.source }
-          });
+          // Create Firebase notification for similar news (appears in notifications page)
+          if (currentUserId) {
+            notificationsService.createNotification({
+              userId: currentUserId,
+              type: 'similar_story',
+              title: 'Similar story found',
+              message: item.title.slice(0, 100) + (item.title.length > 100 ? '...' : ''),
+              postId: item.id
+            });
+          }
 
           // Mark as notified
           tracked.notifiedIds = [...(tracked.notifiedIds || []), item.id];

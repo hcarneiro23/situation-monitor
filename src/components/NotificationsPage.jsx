@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { notificationsService } from '../services/notifications';
-import { ArrowLeft, Bell, Check, Heart, User } from 'lucide-react';
+import { ArrowLeft, Bell, Check, Heart, User, Newspaper } from 'lucide-react';
 
 function NotificationsPage() {
   const navigate = useNavigate();
@@ -103,6 +103,8 @@ function NotificationsPage() {
                     <div className="w-10 h-10 rounded-full bg-intel-700 flex items-center justify-center">
                       {notification.type === 'comment_like' ? (
                         <Heart className="w-5 h-5 text-red-400" />
+                      ) : notification.type === 'similar_story' ? (
+                        <Newspaper className="w-5 h-5 text-blue-400" />
                       ) : (
                         <User className="w-5 h-5 text-gray-400" />
                       )}
