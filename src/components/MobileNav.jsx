@@ -18,7 +18,7 @@ function MobileNav() {
     }
 
     const unsubscribe = notificationsService.subscribeToNotifications(user.uid, (notifs) => {
-      setUnreadCount(notifs.filter(n => !n.read && n.type === 'similar_story').length);
+      setUnreadCount(notifs.filter(n => !n.read && ['similar_story', 'comment_like', 'reply'].includes(n.type)).length);
     });
 
     return () => unsubscribe();

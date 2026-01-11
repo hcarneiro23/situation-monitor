@@ -148,7 +148,7 @@ function CommentItem({ comment, user, onDelete, formatDate, depth = 0, replyingT
                   <span className="text-gray-500">Replying to</span>
                   <span className="text-blue-400">@{comment.author}</span>
                 </div>
-                <form onSubmit={(e) => onSubmitReply(e, comment.id)} className="flex gap-3">
+                <form onSubmit={(e) => onSubmitReply(e, comment.id, comment.authorId)} className="flex gap-3">
                   <div className="flex-shrink-0">
                     {user?.photoURL ? (
                       <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
@@ -393,7 +393,7 @@ function PostDetail() {
     }
   };
 
-  const handleSubmitReply = async (e, parentId = null) => {
+  const handleSubmitReply = async (e, parentId = null, parentAuthorId = null) => {
     e.preventDefault();
     if (!replyText.trim() || submitting) return;
 
@@ -404,7 +404,8 @@ function PostDetail() {
         author: user?.displayName || user?.email || 'Anonymous',
         authorId: user?.uid || null,
         authorPhotoURL: user?.photoURL || null,
-        parentId
+        parentId,
+        parentAuthorId
       });
       setReplyText('');
       setReplyingToId(null);

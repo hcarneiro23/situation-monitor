@@ -9,12 +9,13 @@ import {
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
+import { notificationsService } from './notifications';
 
 const COLLECTION_NAME = 'comments';
 
 export const commentsService = {
   // Add a new comment (parentId for replies)
-  async addComment(postId, { text, author, authorId, authorPhotoURL = null, parentId = null }) {
+  async addComment(postId, { text, author, authorId, authorPhotoURL = null, parentId = null, parentAuthorId = null }) {
     const docRef = await addDoc(collection(db, COLLECTION_NAME), {
       postId,
       text,
@@ -24,6 +25,21 @@ export const commentsService = {
       parentId,
       createdAt: serverTimestamp()
     });
+
+    // Create notification for reply (if replying to someone else's comment)
+    if (parentId && parentAuthorId && parentAuthorId !== authorId) {
+      notificationsService.createNotification({
+        userId: parentAuthorId,
+        type: 'reply',
+        title: `${author} replied to your comment`,
+        message: text.slice(0, 100) + (text.length > 100 ? '...' : ''),
+        postId,
+        fromUserId: authorId,
+        fromUserName: author,
+        fromUserPhoto: authorPhotoURL
+      });
+    }
+
     return docRef.id;
   },
 
