@@ -67,13 +67,22 @@ function TrendingTopics() {
   const topics = useMemo(() => {
     if (!news || news.length === 0) return [];
 
+    // Filter to only include news from the last 24 hours
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const recentNews = news.filter(item => {
+      const itemDate = new Date(item.pubDate).getTime();
+      return itemDate >= twentyFourHoursAgo;
+    });
+
+    if (recentNews.length === 0) return [];
+
     const phraseCounts = new Map();
     const wordCounts = new Map();
     const wordContexts = new Map(); // Track what phrases each word appears in
     const capitalizedCounts = new Map(); // Track if word is typically capitalized (proper noun)
 
     // Extract words and 2-word phrases from titles
-    news.forEach(item => {
+    recentNews.forEach(item => {
       const originalTitle = item.title;
 
       // Extract original words to check capitalization
