@@ -275,8 +275,8 @@ export const useStore = create((set, get) => ({
             notificationsService.createNotification({
               userId: currentUserId,
               type: 'similar_story',
-              title: 'Similar story found',
-              message: item.title.slice(0, 100) + (item.title.length > 100 ? '...' : ''),
+              title: item.title.slice(0, 100) + (item.title.length > 100 ? '...' : ''),
+              message: 'Similar story found',
               postId: item.id
             });
           }
