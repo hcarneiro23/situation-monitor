@@ -38,6 +38,9 @@ export const useStore = create((set, get) => ({
   // Track processed news IDs to avoid batch notifications
   processedNewsIds: new Set(),
 
+  // Track which post IDs have already been notified (global dedup)
+  notifiedPostIds: new Set(),
+
   // Comments
   comments: JSON.parse(localStorage.getItem('comments') || '{}'),
 
@@ -208,8 +211,8 @@ export const useStore = create((set, get) => ({
     let enhancedItem = { ...item };
     if (item.type === 'news' && item.data) {
       const text = `${item.data.title} ${item.data.summary || ''}`.toLowerCase();
-      // Extract significant words (4+ chars, not common words)
-      // Expanded stop words list to reduce false positives
+      // Extract significant words (5+ chars, not common words)
+      // Comprehensive stop words list to reduce false positives
       const stopWords = new Set([
         // Common articles, prepositions, conjunctions
         'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was',
@@ -225,13 +228,27 @@ export const useStore = create((set, get) => ({
         'said', 'says', 'according', 'report', 'reports', 'reported', 'news', 'today',
         'week', 'month', 'since', 'still', 'while', 'during', 'between', 'under', 'around',
         'until', 'though', 'every', 'found', 'part', 'work', 'world', 'country', 'state',
-        'government', 'official', 'officials', 'million', 'billion', 'percent'
+        'government', 'official', 'officials', 'million', 'billion', 'percent',
+        // Additional common news words that cause false matches
+        'says', 'told', 'asked', 'added', 'noted', 'warned', 'announced', 'claimed',
+        'expected', 'likely', 'latest', 'recent', 'former', 'current', 'major', 'global',
+        'local', 'national', 'international', 'public', 'private', 'several', 'various',
+        'following', 'including', 'according', 'sources', 'media', 'press', 'statement',
+        'decision', 'action', 'situation', 'issue', 'issues', 'matter', 'case', 'event',
+        'events', 'amid', 'against', 'calls', 'called', 'faces', 'facing', 'making',
+        'taking', 'going', 'coming', 'looking', 'seeking', 'planning', 'working',
+        'meeting', 'talks', 'deal', 'deals', 'plans', 'move', 'moves', 'step', 'steps',
+        'days', 'weeks', 'months', 'hours', 'minutes', 'monday', 'tuesday', 'wednesday',
+        'thursday', 'friday', 'saturday', 'sunday', 'morning', 'evening', 'night',
+        'early', 'late', 'next', 'past', 'future', 'ahead', 'begin', 'began', 'start',
+        'started', 'continue', 'continued', 'remain', 'remains', 'remained'
       ]);
-      // Require 4+ chars to be more selective
-      const words = text.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length >= 4 && !stopWords.has(w));
+      // Require 5+ chars to be more selective
+      const words = text.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length >= 5 && !stopWords.has(w));
       // Get unique keywords, prioritize longer/more specific words
       const uniqueWords = [...new Set(words)].sort((a, b) => b.length - a.length);
-      enhancedItem.keywords = uniqueWords.slice(0, 12);
+      // Keep only 8 most specific keywords (longer words are more specific)
+      enhancedItem.keywords = uniqueWords.slice(0, 8);
       enhancedItem.trackedAt = new Date().toISOString();
       enhancedItem.notifiedIds = [item.data.id]; // Don't notify for the original post
     }
@@ -265,12 +282,16 @@ export const useStore = create((set, get) => ({
       .filter(item => !notifiedIds.has(item.id))
       .map(item => {
         const text = `${item.title} ${item.summary || ''}`.toLowerCase();
-        const matchCount = trackedItem.keywords.filter(kw => text.includes(kw)).length;
+        // Use word boundary matching to avoid partial matches
+        const matchCount = trackedItem.keywords.filter(kw => {
+          const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          return regex.test(text);
+        }).length;
         const matchScore = matchCount / trackedItem.keywords.length;
         return { ...item, matchScore, matchCount };
       })
-      // At least 40% keyword match AND minimum 3 keyword matches
-      .filter(item => item.matchScore >= 0.4 && item.matchCount >= 3)
+      // At least 50% keyword match AND minimum 4 keyword matches
+      .filter(item => item.matchScore >= 0.5 && item.matchCount >= 4)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, 5);
   },
@@ -278,10 +299,10 @@ export const useStore = create((set, get) => ({
   // Check all tracked posts for new similar news and create notifications
   // Only processes news items that haven't been processed yet to avoid batch notifications
   checkTrackedPostsForUpdates: (newNewsItems = null) => {
-    const { watchlist, news, currentUserId, processedNewsIds } = get();
+    const { watchlist, news, currentUserId, processedNewsIds, notifiedPostIds } = get();
     const trackedPosts = watchlist.filter(item => item.type === 'news');
 
-    if (trackedPosts.length === 0) return;
+    if (trackedPosts.length === 0 || !currentUserId) return;
 
     // Determine which news items to check
     // If newNewsItems provided, only check those; otherwise check unprocessed items
@@ -296,6 +317,8 @@ export const useStore = create((set, get) => ({
     if (itemsToCheck.length === 0) return;
 
     let updated = false;
+    const newGlobalNotifiedIds = new Set(notifiedPostIds);
+
     const updatedWatchlist = watchlist.map(item => {
       if (item.type !== 'news' || !item.keywords || item.keywords.length === 0) {
         return item;
@@ -305,28 +328,39 @@ export const useStore = create((set, get) => ({
       const newNotifiedIds = [...(item.notifiedIds || [])];
 
       itemsToCheck.forEach(newsItem => {
+        // Skip if already notified for this tracked post
         if (notifiedIds.has(newsItem.id)) return;
 
+        // Skip if already notified globally (prevents duplicate notifications)
+        if (newGlobalNotifiedIds.has(newsItem.id)) return;
+
         const text = `${newsItem.title} ${newsItem.summary || ''}`.toLowerCase();
-        const matchCount = item.keywords.filter(kw => text.includes(kw)).length;
+
+        // Use word boundary matching to avoid partial word matches
+        const matchCount = item.keywords.filter(kw => {
+          // Escape regex special chars and use word boundaries
+          const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+          return regex.test(text);
+        }).length;
+
         const matchScore = matchCount / item.keywords.length;
 
-        // Require at least 40% keyword match AND minimum 3 keyword matches
+        // Require at least 50% keyword match AND minimum 4 keyword matches
         // This reduces false positives from generic word matches
-        if (matchScore >= 0.4 && matchCount >= 3) {
+        if (matchScore >= 0.5 && matchCount >= 4) {
           // Create Firebase notification for similar news
-          if (currentUserId) {
-            notificationsService.createNotification({
-              userId: currentUserId,
-              type: 'similar_story',
-              title: newsItem.title.slice(0, 100) + (newsItem.title.length > 100 ? '...' : ''),
-              message: `Similar to: "${item.name.slice(0, 50)}${item.name.length > 50 ? '...' : ''}"`,
-              postId: newsItem.id
-            });
-          }
+          notificationsService.createNotification({
+            userId: currentUserId,
+            type: 'similar_story',
+            title: newsItem.title.slice(0, 100) + (newsItem.title.length > 100 ? '...' : ''),
+            message: `Similar to: "${item.name.slice(0, 50)}${item.name.length > 50 ? '...' : ''}"`,
+            postId: newsItem.id
+          });
 
-          // Mark as notified
+          // Mark as notified (both locally and globally)
           newNotifiedIds.push(newsItem.id);
+          newGlobalNotifiedIds.add(newsItem.id);
           updated = true;
         }
       });
@@ -341,20 +375,23 @@ export const useStore = create((set, get) => ({
     const newProcessedIds = new Set(processedNewsIds);
     itemsToCheck.forEach(item => newProcessedIds.add(item.id));
 
-    // Trim to last 500 IDs if needed
-    if (newProcessedIds.size > 500) {
-      const idsArray = Array.from(newProcessedIds);
-      const trimmedIds = new Set(idsArray.slice(-500));
-      set({ processedNewsIds: trimmedIds });
-    } else {
-      set({ processedNewsIds: newProcessedIds });
-    }
+    // Trim sets to prevent memory issues
+    const trimSet = (s, max) => {
+      if (s.size > max) {
+        const arr = Array.from(s);
+        return new Set(arr.slice(-max));
+      }
+      return s;
+    };
+
+    set({
+      processedNewsIds: trimSet(newProcessedIds, 500),
+      notifiedPostIds: trimSet(newGlobalNotifiedIds, 500)
+    });
 
     if (updated) {
       set({ watchlist: updatedWatchlist });
-      if (currentUserId) {
-        watchlistService.saveWatchlist(currentUserId, updatedWatchlist);
-      }
+      watchlistService.saveWatchlist(currentUserId, updatedWatchlist);
     }
   },
 
