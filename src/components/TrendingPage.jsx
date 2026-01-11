@@ -63,12 +63,21 @@ function TrendingPage() {
   const topics = useMemo(() => {
     if (!news || news.length === 0) return [];
 
+    // Filter to only include news from the last 24 hours
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const recentNews = news.filter(item => {
+      const itemDate = new Date(item.pubDate).getTime();
+      return itemDate >= twentyFourHoursAgo;
+    });
+
+    if (recentNews.length === 0) return [];
+
     const phraseCounts = new Map();
     const wordCounts = new Map();
     const wordContexts = new Map();
     const capitalizedCounts = new Map();
 
-    news.forEach(item => {
+    recentNews.forEach(item => {
       const originalTitle = item.title;
       const originalWords = originalTitle
         .replace(/[^\w\s\u00C0-\u024F'-]/g, ' ')

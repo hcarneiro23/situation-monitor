@@ -72,8 +72,11 @@ function TopicDetail() {
   const decodedTopic = decodeURIComponent(topic);
   const topicWords = decodedTopic.toLowerCase().split(' ');
 
-  // Find all news mentioning this topic
+  // Find all news mentioning this topic from the last 24 hours
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
   const mentions = news.filter(item => {
+    const itemDate = new Date(item.pubDate).getTime();
+    if (itemDate < twentyFourHoursAgo) return false;
     const text = `${item.title} ${item.summary || ''}`.toLowerCase();
     return topicWords.every(word => text.includes(word));
   }).sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
