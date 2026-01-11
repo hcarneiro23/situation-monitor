@@ -18,18 +18,23 @@ export const notificationsService = {
     if (!userId || userId === fromUserId) return null; // Don't notify yourself
 
     try {
-      const docRef = await addDoc(collection(db, COLLECTION_NAME), {
+      // Build notification object, excluding undefined fields (Firestore doesn't allow undefined)
+      const notification = {
         userId,
         type,
         title,
         message,
-        postId,
-        fromUserId,
-        fromUserName,
-        fromUserPhoto,
         read: false,
         createdAt: serverTimestamp()
-      });
+      };
+
+      // Only add optional fields if they have values
+      if (postId !== undefined) notification.postId = postId;
+      if (fromUserId !== undefined) notification.fromUserId = fromUserId;
+      if (fromUserName !== undefined) notification.fromUserName = fromUserName;
+      if (fromUserPhoto !== undefined) notification.fromUserPhoto = fromUserPhoto;
+
+      const docRef = await addDoc(collection(db, COLLECTION_NAME), notification);
       return docRef.id;
     } catch (error) {
       console.error('[Notifications] Error creating notification:', error);

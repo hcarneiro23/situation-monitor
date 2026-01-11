@@ -243,18 +243,8 @@ export const useStore = create((set, get) => ({
     const trackedPosts = watchlist.filter(item => item.type === 'news');
     let updated = false;
 
-    console.log('[Tracking] checkTrackedPostsForUpdates called:', {
-      currentUserId,
-      trackedPostsCount: trackedPosts.length,
-      newsCount: news.length,
-      trackedPosts: trackedPosts.map(t => ({ id: t.id, keywords: t.keywords?.length, notifiedIds: t.notifiedIds?.length }))
-    });
-
     trackedPosts.forEach(tracked => {
-      if (!tracked.keywords || tracked.keywords.length === 0) {
-        console.log('[Tracking] Skipping tracked post - no keywords:', tracked.id);
-        return;
-      }
+      if (!tracked.keywords || tracked.keywords.length === 0) return;
       const notifiedIds = new Set(tracked.notifiedIds || []);
 
       news.forEach(item => {
@@ -265,31 +255,15 @@ export const useStore = create((set, get) => ({
         const matchScore = matchCount / tracked.keywords.length;
 
         if (matchScore >= 0.3) {
-          console.log('[Tracking] Match found!', {
-            trackedId: tracked.id,
-            newsId: item.id,
-            matchScore,
-            matchCount,
-            totalKeywords: tracked.keywords.length,
-            currentUserId
-          });
-
           // Create Firebase notification for similar news (appears in notifications page)
           if (currentUserId) {
-            console.log('[Tracking] Creating notification for user:', currentUserId);
             notificationsService.createNotification({
               userId: currentUserId,
               type: 'similar_story',
               title: 'Similar story found',
               message: item.title.slice(0, 100) + (item.title.length > 100 ? '...' : ''),
               postId: item.id
-            }).then(result => {
-              console.log('[Tracking] Notification created:', result);
-            }).catch(err => {
-              console.error('[Tracking] Notification error:', err);
             });
-          } else {
-            console.log('[Tracking] No currentUserId - skipping notification');
           }
 
           // Mark as notified
@@ -300,7 +274,6 @@ export const useStore = create((set, get) => ({
     });
 
     if (updated) {
-      console.log('[Tracking] Updating watchlist in localStorage');
       localStorage.setItem('watchlist', JSON.stringify(watchlist));
       set({ watchlist: [...watchlist] });
     }
