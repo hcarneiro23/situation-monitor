@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { MessageCircle, Heart, Share, ExternalLink, Eye, Plus, Check } from 'lucide-react';
-import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
+import { formatDistanceToNow, isValid, parseISO, differenceInHours } from 'date-fns';
 import { likesService } from '../services/likes';
 import { commentsService } from '../services/comments';
+import { interactionsService } from '../services/interactions';
 import { useAuth } from '../context/AuthContext';
 
 // Source logo colors for fallback avatars
@@ -541,6 +542,43 @@ const COUNTRY_TO_REGION = {
   'australia': 'oceania', 'new zealand': 'oceania',
 };
 
+// Extract keywords from post text for matching
+function extractPostKeywords(text) {
+  if (!text) return [];
+  const stopWords = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'will', 'more', 'when', 'who', 'new', 'now', 'way', 'may', 'say', 'she', 'two', 'how', 'its', 'let', 'put', 'too', 'use', 'this', 'that', 'with', 'from', 'they', 'been', 'have', 'were', 'said', 'each', 'which', 'their', 'there', 'what', 'about', 'would', 'could', 'should', 'after', 'before']);
+  const words = text.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
+  return [...new Set(words)].slice(0, 10);
+}
+
+// Calculate freshness score (0-1) based on post age
+// Posts less than 1 hour old get max score, decays over 24 hours
+function getFreshnessScore(pubDate) {
+  if (!pubDate) return 0.3;
+  try {
+    const date = parseISO(pubDate);
+    if (!isValid(date)) return 0.3;
+    const hoursAgo = differenceInHours(new Date(), date);
+    if (hoursAgo < 1) return 1.0;
+    if (hoursAgo < 3) return 0.9;
+    if (hoursAgo < 6) return 0.8;
+    if (hoursAgo < 12) return 0.6;
+    if (hoursAgo < 24) return 0.4;
+    if (hoursAgo < 48) return 0.25;
+    return 0.1;
+  } catch (e) {
+    return 0.3;
+  }
+}
+
+// Calculate engagement score based on likes and comments
+function getEngagementScore(likeCount, commentCount) {
+  // Logarithmic scale to prevent viral posts from dominating
+  const likes = Math.log10(Math.max(likeCount, 1) + 1);
+  const comments = Math.log10(Math.max(commentCount, 1) + 1);
+  // Normalize to 0-1 range (assuming max ~100 likes/comments)
+  return Math.min((likes * 0.6 + comments * 0.4) / 2, 1);
+}
+
 // Brazilian news sources
 const BRAZILIAN_SOURCES = [
   'Estadão', 'Folha de S.Paulo', 'Folha', 'O Globo', 'G1', 'CNN Brasil', 'UOL', 'Terra',
@@ -585,18 +623,17 @@ function NewsFeed() {
   const [commentsMap, setCommentsMap] = useState({});
   const [activeTab, setActiveTab] = useState('foryou'); // 'foryou' or 'following'
   const [userLikeProfile, setUserLikeProfile] = useState(null); // For recommendations
+  const [engagementProfile, setEngagementProfile] = useState(null); // Clicks/interactions
   const loaderRef = useRef(null);
+
+  // Track session-shown posts to prevent repetition within session
+  const sessionShownRef = useRef(new Set());
 
   // Track shown news to detect new articles
   const [shownNewsIds, setShownNewsIds] = useState(() => new Set());
   const [pendingNewIds, setPendingNewIds] = useState(() => new Set()); // Track which IDs are pending (show button)
   const [justRevealedIds, setJustRevealedIds] = useState(() => new Set()); // Track IDs that were just revealed (appear at top)
   const [isInitialized, setIsInitialized] = useState(false);
-
-  // Track view counts per post (used for sorting, not filtering)
-  const [postViewCounts, setPostViewCounts] = useState(() => {
-    return JSON.parse(localStorage.getItem('postViewCounts') || '{}');
-  });
 
   // Store the initial news IDs on first load
   const lastNewsIdsRef = useRef(new Set());
@@ -700,30 +737,19 @@ function NewsFeed() {
     return shownNews;
   }, [news, activeTab, followedSources, shownNewsIds, isInitialized]);
 
-  // Increment view counts for displayed posts (once per session)
-  const hasIncrementedViews = useRef(false);
+  // Track seen posts for personalization (once per display batch)
+  const lastTrackedCountRef = useRef(0);
   useEffect(() => {
-    if (hasIncrementedViews.current || filteredNews.length === 0) return;
+    if (filteredNews.length === 0) return;
 
-    const displayedIds = filteredNews.slice(0, displayCount).map(item => item.id);
-    const updatedCounts = { ...postViewCounts };
-
-    displayedIds.forEach(id => {
-      updatedCounts[id] = (updatedCounts[id] || 0) + 1;
-    });
-
-    // Clean up old entries (keep only last 1000)
-    const entries = Object.entries(updatedCounts);
-    if (entries.length > 1000) {
-      const trimmed = Object.fromEntries(entries.slice(-1000));
-      localStorage.setItem('postViewCounts', JSON.stringify(trimmed));
-      setPostViewCounts(trimmed);
-    } else {
-      localStorage.setItem('postViewCounts', JSON.stringify(updatedCounts));
-      setPostViewCounts(updatedCounts);
+    // Only track new posts that haven't been tracked yet
+    const currentDisplayed = filteredNews.slice(0, displayCount);
+    if (currentDisplayed.length > lastTrackedCountRef.current) {
+      const newlyDisplayed = currentDisplayed.slice(lastTrackedCountRef.current);
+      const newIds = newlyDisplayed.map(item => item.id);
+      interactionsService.trackSeen(newIds);
+      lastTrackedCountRef.current = currentDisplayed.length;
     }
-
-    hasIncrementedViews.current = true;
   }, [filteredNews, displayCount]);
 
   // Calculate relevance score for a post based on user interests
@@ -817,6 +843,12 @@ function NewsFeed() {
     return () => unsubscribe();
   }, [user?.uid]);
 
+  // Load engagement profile from local interactions
+  useEffect(() => {
+    const profile = interactionsService.getEngagementProfile();
+    setEngagementProfile(profile);
+  }, []);
+
   // Subscribe to all comments (for reply counts)
   useEffect(() => {
     const unsubscribes = [];
@@ -842,9 +874,20 @@ function NewsFeed() {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [filteredNews, displayCount]);
 
-  const handleNavigateToPost = (postId) => {
+  const handleNavigateToPost = useCallback((postId) => {
+    // Track the click for personalization
+    const post = news.find(n => n.id === postId);
+    if (post) {
+      interactionsService.trackClick(postId, {
+        source: post.source,
+        category: post.category,
+        keywords: extractPostKeywords(`${post.title} ${post.summary || ''}`)
+      });
+      // Refresh engagement profile
+      setEngagementProfile(interactionsService.getEngagementProfile());
+    }
     navigate(`/post/${postId}`);
-  };
+  }, [news, navigate]);
 
   // Enforce max consecutive items from same source
   const enforceSourceDiversity = (items, maxConsecutive = 2) => {
@@ -889,26 +932,224 @@ function NewsFeed() {
     return result;
   };
 
-  // Sort by most recent (pubDate)
-  // Just revealed posts appear at top, then all posts sorted by date
+  // Calculate trending topics from current news
+  const trendingTopics = useMemo(() => {
+    return extractTrendingPhrases(filteredNews);
+  }, [filteredNews]);
+
+  // Smart ranking algorithm that combines multiple signals
+  const calculatePostScore = useCallback((item) => {
+    const text = `${item.title} ${item.summary || ''}`.toLowerCase();
+    const postKeywords = extractPostKeywords(text);
+
+    // 1. FRESHNESS SCORE (0-1) - newer posts get higher scores
+    const freshnessScore = getFreshnessScore(item.pubDate);
+
+    // 2. TRENDING SCORE (0-1) - how well post matches trending topics
+    let trendingScore = 0;
+    if (trendingTopics.length > 0) {
+      const trendingMatches = trendingTopics.filter(t =>
+        text.includes(t.phrase.toLowerCase())
+      ).length;
+      trendingScore = Math.min(trendingMatches / 3, 1);
+    }
+
+    // 3. INTEREST SCORE (0-1) - matches user's stated interests
+    const interestScore = getRelevanceScore(item);
+
+    // 4. LOCATION SCORE (0-1) - matches user's location preferences
+    const locationScore = getCountryScore(item);
+
+    // 5. LIKE PROFILE SCORE (0-1) - matches user's liked content patterns
+    let likeProfileScore = 0;
+    if (userLikeProfile && userLikeProfile.totalLikes > 0) {
+      let score = 0;
+      // Source match
+      if (item.source && userLikeProfile.likedSources[item.source]) {
+        score += Math.min(userLikeProfile.likedSources[item.source] / 5, 1) * 0.3;
+      }
+      // Category match
+      if (item.category && userLikeProfile.likedCategories[item.category]) {
+        score += Math.min(userLikeProfile.likedCategories[item.category] / 3, 1) * 0.3;
+      }
+      // Keyword match
+      const matchedKeywords = postKeywords.filter(kw => userLikeProfile.likedKeywords[kw]);
+      if (matchedKeywords.length > 0) {
+        score += Math.min(matchedKeywords.length / 3, 1) * 0.4;
+      }
+      likeProfileScore = score;
+    }
+
+    // 6. ENGAGEMENT PROFILE SCORE (0-1) - matches user's clicked content patterns
+    let engagementScore = 0;
+    if (engagementProfile && engagementProfile.totalClicks > 0) {
+      let score = 0;
+      // Source match from clicks
+      if (item.source && engagementProfile.clickedSources[item.source]) {
+        score += Math.min(engagementProfile.clickedSources[item.source] / 5, 1) * 0.3;
+      }
+      // Category match from clicks
+      if (item.category && engagementProfile.clickedCategories[item.category]) {
+        score += Math.min(engagementProfile.clickedCategories[item.category] / 3, 1) * 0.3;
+      }
+      // Keyword match from clicks
+      const matchedKeywords = postKeywords.filter(kw => engagementProfile.clickedKeywords[kw]);
+      if (matchedKeywords.length > 0) {
+        score += Math.min(matchedKeywords.length / 3, 1) * 0.4;
+      }
+      engagementScore = score;
+    }
+
+    // 7. POST ENGAGEMENT SCORE (0-1) - likes/comments on this post
+    const postLikes = likesMap[item.id]?.count || 0;
+    const postComments = commentsMap[item.id] || 0;
+    const postEngagement = getEngagementScore(postLikes, postComments);
+
+    // 8. SEEN PENALTY (0-1) - reduce score for posts seen multiple times
+    const viewCount = interactionsService.getViewCount(item.id);
+    const seenPenalty = viewCount > 0 ? Math.min(viewCount * 0.15, 0.5) : 0;
+
+    // 9. ALREADY CLICKED PENALTY - strongly deprioritize clicked posts
+    const clickedPenalty = engagementProfile?.clickedPostIds?.has(item.id) ? 0.6 : 0;
+
+    // 10. SESSION SHOWN PENALTY - prevent showing same post repeatedly in session
+    const sessionPenalty = sessionShownRef.current.has(item.id) ? 0.3 : 0;
+
+    // COMBINE SCORES with weights
+    // Freshness is most important, followed by personalization, then engagement
+    const rawScore =
+      freshnessScore * 0.30 +      // 30% - freshness (prevents stale content)
+      trendingScore * 0.15 +       // 15% - trending topics
+      interestScore * 0.12 +       // 12% - stated interests
+      locationScore * 0.08 +       // 8% - location relevance
+      likeProfileScore * 0.15 +    // 15% - like history
+      engagementScore * 0.10 +     // 10% - click history
+      postEngagement * 0.10;       // 10% - post popularity
+
+    // Apply penalties
+    const finalScore = Math.max(rawScore - seenPenalty - clickedPenalty - sessionPenalty, 0.01);
+
+    // Add small random factor (0-0.05) to prevent deterministic ordering
+    const randomFactor = Math.random() * 0.05;
+
+    return finalScore + randomFactor;
+  }, [trendingTopics, userLikeProfile, engagementProfile, likesMap, commentsMap, getRelevanceScore, getCountryScore]);
+
+  // Smart sorted news with diversity enforcement
   const sortedNews = useMemo(() => {
-    // Sort all posts by pubDate (newest first)
-    const byDate = [...filteredNews].sort((a, b) => {
-      const dateA = new Date(a.pubDate || 0);
-      const dateB = new Date(b.pubDate || 0);
-      return dateB - dateA;
+    if (filteredNews.length === 0) return [];
+
+    // Separate posts into categories
+    const justRevealedPosts = filteredNews.filter(item => justRevealedIds.has(item.id));
+    const otherPosts = filteredNews.filter(item => !justRevealedIds.has(item.id));
+
+    // Sort just revealed by date (newest first)
+    justRevealedPosts.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
+
+    // Identify truly fresh posts (less than 2 hours old, not yet seen)
+    const freshPosts = [];
+    const regularPosts = [];
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+
+    otherPosts.forEach(post => {
+      const pubTime = new Date(post.pubDate || 0).getTime();
+      const isFresh = pubTime > twoHoursAgo;
+      const notClicked = !engagementProfile?.clickedPostIds?.has(post.id);
+      const notSeenMuch = interactionsService.getViewCount(post.id) < 3;
+
+      if (isFresh && notClicked && notSeenMuch) {
+        freshPosts.push(post);
+      } else {
+        regularPosts.push(post);
+      }
     });
 
-    // Separate just revealed posts (clicked "Show new posts")
-    const justRevealedPosts = byDate.filter(item => justRevealedIds.has(item.id));
-    const otherPosts = byDate.filter(item => !justRevealedIds.has(item.id));
+    // Score all regular posts
+    const scoredPosts = regularPosts.map(post => ({
+      ...post,
+      _score: calculatePostScore(post)
+    }));
 
-    // Just revealed posts go at the very top, then the rest by date
-    const result = [...justRevealedPosts, ...otherPosts];
+    // Sort by score (highest first)
+    scoredPosts.sort((a, b) => b._score - a._score);
 
-    // Apply source diversity - no more than 2 consecutive from same source
-    return enforceSourceDiversity(result, 2);
-  }, [filteredNews, justRevealedIds]);
+    // Score fresh posts but keep them prioritized
+    const scoredFresh = freshPosts.map(post => ({
+      ...post,
+      _score: calculatePostScore(post)
+    }));
+    scoredFresh.sort((a, b) => b._score - a._score);
+
+    // INTERLEAVE: Mix fresh posts throughout the feed to ensure they're seen
+    // Strategy: Reserve every 5th slot for fresh posts (if available)
+    const result = [...justRevealedPosts];
+    let freshIdx = 0;
+    let regularIdx = 0;
+
+    // First, add up to 3 top fresh posts at the start
+    const topFresh = scoredFresh.slice(0, 3);
+    result.push(...topFresh);
+    freshIdx = 3;
+
+    // Then interleave remaining
+    while (regularIdx < scoredPosts.length || freshIdx < scoredFresh.length) {
+      // Add 4 regular posts
+      for (let i = 0; i < 4 && regularIdx < scoredPosts.length; i++) {
+        result.push(scoredPosts[regularIdx++]);
+      }
+      // Add 1 fresh post if available
+      if (freshIdx < scoredFresh.length) {
+        result.push(scoredFresh[freshIdx++]);
+      }
+    }
+
+    // Apply diversity enforcement - prevent same source clustering
+    const diversified = enforceSourceDiversity(result, 2);
+
+    // Prevent same category clustering (no more than 3 consecutive)
+    const categoryDiversified = [];
+    for (let i = 0; i < diversified.length; i++) {
+      const post = diversified[i];
+      let consecutiveSameCategory = 0;
+
+      // Count consecutive posts with same category
+      for (let j = categoryDiversified.length - 1; j >= 0 && j >= categoryDiversified.length - 3; j--) {
+        if (categoryDiversified[j].category === post.category) {
+          consecutiveSameCategory++;
+        } else {
+          break;
+        }
+      }
+
+      if (consecutiveSameCategory >= 3) {
+        // Find next post with different category to swap
+        for (let k = i + 1; k < diversified.length; k++) {
+          if (diversified[k].category !== post.category) {
+            // Swap
+            [diversified[i], diversified[k]] = [diversified[k], diversified[i]];
+            categoryDiversified.push(diversified[i]);
+            break;
+          }
+        }
+        if (categoryDiversified.length <= i) {
+          categoryDiversified.push(post); // No swap found, just add
+        }
+      } else {
+        categoryDiversified.push(post);
+      }
+    }
+
+    // Track shown posts in this session
+    categoryDiversified.forEach(post => sessionShownRef.current.add(post.id));
+
+    // Limit session tracking to prevent memory issues
+    if (sessionShownRef.current.size > 500) {
+      const arr = Array.from(sessionShownRef.current);
+      sessionShownRef.current = new Set(arr.slice(-300));
+    }
+
+    return categoryDiversified;
+  }, [filteredNews, justRevealedIds, calculatePostScore, engagementProfile]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
