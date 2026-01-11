@@ -244,7 +244,7 @@ export const useStore = create((set, get) => ({
     let updated = false;
 
     trackedPosts.forEach(tracked => {
-      if (!tracked.keywords) return;
+      if (!tracked.keywords || tracked.keywords.length === 0) return;
       const notifiedIds = new Set(tracked.notifiedIds || []);
 
       news.forEach(item => {
