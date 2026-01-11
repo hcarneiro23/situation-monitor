@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useStore } from './store/useStore';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -41,6 +41,7 @@ const getWsUrl = () => {
 function App() {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const knownNewsIdsRef = useRef(new Set());
 
   const {
     updateFullState,
@@ -57,6 +58,19 @@ function App() {
     onboardingCompleted,
     preferencesLoading
   } = useStore();
+
+  // Identify truly new news items by comparing with known IDs
+  const getNewNewsItems = useCallback((newsArray) => {
+    const newItems = newsArray.filter(item => !knownNewsIdsRef.current.has(item.id));
+    // Update known IDs
+    newsArray.forEach(item => knownNewsIdsRef.current.add(item.id));
+    // Trim to prevent memory issues (keep last 1000)
+    if (knownNewsIdsRef.current.size > 1000) {
+      const idsArray = Array.from(knownNewsIdsRef.current);
+      knownNewsIdsRef.current = new Set(idsArray.slice(-1000));
+    }
+    return newItems;
+  }, []);
 
   const connectWebSocket = () => {
     const wsUrl = getWsUrl();
@@ -76,14 +90,22 @@ function App() {
 
         switch (message.type) {
           case 'FULL_STATE':
+            // Initialize known news IDs from full state
+            if (message.data.news) {
+              message.data.news.forEach(item => knownNewsIdsRef.current.add(item.id));
+            }
             updateFullState(message.data);
             break;
           case 'NEWS_UPDATE':
+            // Identify truly new news items before updating state
+            const newItems = getNewNewsItems(message.data.news);
             setNews(message.data.news);
             setSignals(message.data.signals);
             checkWatchlistAlerts();
-            // Check tracked posts for similar news
-            setTimeout(() => checkTrackedPostsForUpdates(), 100);
+            // Only check tracked posts if there are genuinely new items
+            if (newItems.length > 0) {
+              setTimeout(() => checkTrackedPostsForUpdates(newItems), 100);
+            }
             break;
           case 'MARKET_UPDATE':
             setMarkets(message.data);
