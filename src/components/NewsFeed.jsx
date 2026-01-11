@@ -954,13 +954,7 @@ function NewsFeed() {
       trendingScore = Math.min(trendingMatches / 3, 1);
     }
 
-    // 3. INTEREST SCORE (0-1) - matches user's stated interests
-    const interestScore = getRelevanceScore(item);
-
-    // 4. LOCATION SCORE (0-1) - matches user's location preferences
-    const locationScore = getCountryScore(item);
-
-    // 5. LIKE PROFILE SCORE (0-1) - matches user's liked content patterns
+    // 3. LIKE PROFILE SCORE (0-1) - matches user's liked content patterns
     let likeProfileScore = 0;
     if (userLikeProfile && userLikeProfile.totalLikes > 0) {
       let score = 0;
@@ -980,7 +974,7 @@ function NewsFeed() {
       likeProfileScore = score;
     }
 
-    // 6. ENGAGEMENT PROFILE SCORE (0-1) - matches user's clicked content patterns
+    // 4. ENGAGEMENT PROFILE SCORE (0-1) - matches user's clicked content patterns
     let engagementScore = 0;
     if (engagementProfile && engagementProfile.totalClicks > 0) {
       let score = 0;
@@ -1000,31 +994,29 @@ function NewsFeed() {
       engagementScore = score;
     }
 
-    // 7. POST ENGAGEMENT SCORE (0-1) - likes/comments on this post
+    // 5. POST ENGAGEMENT SCORE (0-1) - likes/comments on this post
     const postLikes = likesMap[item.id]?.count || 0;
     const postComments = commentsMap[item.id] || 0;
     const postEngagement = getEngagementScore(postLikes, postComments);
 
-    // 8. SEEN PENALTY (0-1) - reduce score for posts seen multiple times
+    // 6. SEEN PENALTY (0-1) - reduce score for posts seen multiple times
     const viewCount = interactionsService.getViewCount(item.id);
     const seenPenalty = viewCount > 0 ? Math.min(viewCount * 0.15, 0.5) : 0;
 
-    // 9. ALREADY CLICKED PENALTY - strongly deprioritize clicked posts
+    // 7. ALREADY CLICKED PENALTY - strongly deprioritize clicked posts
     const clickedPenalty = engagementProfile?.clickedPostIds?.has(item.id) ? 0.6 : 0;
 
-    // 10. SESSION SHOWN PENALTY - prevent showing same post repeatedly in session
+    // 8. SESSION SHOWN PENALTY - prevent showing same post repeatedly in session
     const sessionPenalty = sessionShownRef.current.has(item.id) ? 0.3 : 0;
 
     // COMBINE SCORES with weights
     // Freshness is most important, followed by personalization, then engagement
     const rawScore =
-      freshnessScore * 0.30 +      // 30% - freshness (prevents stale content)
-      trendingScore * 0.15 +       // 15% - trending topics
-      interestScore * 0.12 +       // 12% - stated interests
-      locationScore * 0.08 +       // 8% - location relevance
-      likeProfileScore * 0.15 +    // 15% - like history
-      engagementScore * 0.10 +     // 10% - click history
-      postEngagement * 0.10;       // 10% - post popularity
+      freshnessScore * 0.35 +      // 35% - freshness (prevents stale content)
+      trendingScore * 0.20 +       // 20% - trending topics
+      likeProfileScore * 0.20 +    // 20% - like history
+      engagementScore * 0.12 +     // 12% - click history
+      postEngagement * 0.13;       // 13% - post popularity
 
     // Apply penalties
     const finalScore = Math.max(rawScore - seenPenalty - clickedPenalty - sessionPenalty, 0.01);
@@ -1033,7 +1025,7 @@ function NewsFeed() {
     const randomFactor = Math.random() * 0.05;
 
     return finalScore + randomFactor;
-  }, [trendingTopics, userLikeProfile, engagementProfile, likesMap, commentsMap, getRelevanceScore, getCountryScore]);
+  }, [trendingTopics, userLikeProfile, engagementProfile, likesMap, commentsMap]);
 
   // Smart sorted news with diversity enforcement
   const sortedNews = useMemo(() => {
