@@ -20,7 +20,7 @@ function Header() {
     }
 
     const unsubscribe = notificationsService.subscribeToNotifications(user.uid, (notifs) => {
-      setUnreadCount(notifs.filter(n => !n.read).length);
+      setUnreadCount(notifs.filter(n => !n.read && n.type === 'similar_story').length);
     });
 
     return () => unsubscribe();
