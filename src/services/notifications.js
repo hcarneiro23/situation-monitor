@@ -52,6 +52,18 @@ export const notificationsService = {
     }
   },
 
+  // Mark all notifications as read for a user
+  async markAllAsRead(notifications) {
+    try {
+      const unread = notifications.filter(n => !n.read);
+      await Promise.all(
+        unread.map(n => updateDoc(doc(db, COLLECTION_NAME, n.id), { read: true }))
+      );
+    } catch (error) {
+      console.error('[Notifications] Error marking all as read:', error);
+    }
+  },
+
   // Subscribe to notifications for a user
   subscribeToNotifications(userId, callback) {
     if (!userId) {

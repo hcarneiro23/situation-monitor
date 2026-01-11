@@ -20,6 +20,16 @@ function NotificationsPage() {
     return () => unsubscribe();
   }, [user]);
 
+  // Mark all as read when page is opened
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const unread = notifications.filter(n => !n.read);
+      if (unread.length > 0) {
+        notificationsService.markAllAsRead(notifications);
+      }
+    }
+  }, [notifications]);
+
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
