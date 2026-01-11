@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { userPreferencesService } from '../services/userPreferences';
 import { notificationsService } from '../services/notifications';
+import { watchlistService } from '../services/watchlist';
 
 export const useStore = create((set, get) => ({
   // Data state
@@ -31,8 +32,8 @@ export const useStore = create((set, get) => ({
   onboardingCompleted: false,
   availableCities: [],
 
-  // Watchlist
-  watchlist: JSON.parse(localStorage.getItem('watchlist') || '[]'),
+  // Watchlist (synced with Firestore)
+  watchlist: [],
 
   // Comments
   comments: JSON.parse(localStorage.getItem('comments') || '{}'),
@@ -64,6 +65,7 @@ export const useStore = create((set, get) => ({
         userInterests: [],
         followedSources: [],
         onboardingCompleted: false,
+        watchlist: [],
         preferencesLoading: false
       });
       return;
@@ -72,13 +74,18 @@ export const useStore = create((set, get) => ({
     set({ currentUserId: userId, preferencesLoading: true });
 
     try {
-      const prefs = await userPreferencesService.getPreferences(userId);
+      const [prefs, watchlist] = await Promise.all([
+        userPreferencesService.getPreferences(userId),
+        watchlistService.getWatchlist(userId)
+      ]);
+
       if (prefs) {
         set({
           userCity: prefs.userCity || null,
           userInterests: prefs.userInterests || [],
           followedSources: prefs.followedSources || [],
           onboardingCompleted: prefs.onboardingCompleted || false,
+          watchlist: watchlist || [],
           preferencesLoading: false
         });
       } else {
@@ -88,6 +95,7 @@ export const useStore = create((set, get) => ({
           userInterests: [],
           followedSources: [],
           onboardingCompleted: false,
+          watchlist: watchlist || [],
           preferencesLoading: false
         });
       }
@@ -105,6 +113,7 @@ export const useStore = create((set, get) => ({
       userInterests: [],
       followedSources: [],
       onboardingCompleted: false,
+      watchlist: [],
       preferencesLoading: false
     });
   },
@@ -189,8 +198,9 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  // Watchlist management
+  // Watchlist management (synced with Firestore)
   addToWatchlist: (item) => {
+    const userId = get().currentUserId;
     // If tracking a news item, extract keywords for similarity matching
     let enhancedItem = { ...item };
     if (item.type === 'news' && item.data) {
@@ -204,14 +214,19 @@ export const useStore = create((set, get) => ({
       enhancedItem.notifiedIds = [item.data.id]; // Don't notify for the original post
     }
     const watchlist = [...get().watchlist, enhancedItem];
-    localStorage.setItem('watchlist', JSON.stringify(watchlist));
     set({ watchlist });
+    if (userId) {
+      watchlistService.saveWatchlist(userId, watchlist);
+    }
   },
 
   removeFromWatchlist: (itemId) => {
+    const userId = get().currentUserId;
     const watchlist = get().watchlist.filter(i => i.id !== itemId);
-    localStorage.setItem('watchlist', JSON.stringify(watchlist));
     set({ watchlist });
+    if (userId) {
+      watchlistService.saveWatchlist(userId, watchlist);
+    }
   },
 
   isInWatchlist: (itemId) => {
@@ -274,8 +289,10 @@ export const useStore = create((set, get) => ({
     });
 
     if (updated) {
-      localStorage.setItem('watchlist', JSON.stringify(watchlist));
       set({ watchlist: [...watchlist] });
+      if (currentUserId) {
+        watchlistService.saveWatchlist(currentUserId, watchlist);
+      }
     }
   },
 
