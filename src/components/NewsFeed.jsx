@@ -629,6 +629,9 @@ function NewsFeed() {
   // Track session-shown posts to prevent repetition within session
   const sessionShownRef = useRef(new Set());
 
+  // Cache scores to prevent live reordering - only recalculate when news changes
+  const cachedScoresRef = useRef(new Map());
+
   // Track shown news to detect new articles
   const [shownNewsIds, setShownNewsIds] = useState(() => new Set());
   const [pendingNewIds, setPendingNewIds] = useState(() => new Set()); // Track which IDs are pending (show button)
@@ -673,6 +676,9 @@ function NewsFeed() {
     // Prevent double-firing from touch + click events
     if (isHandlingNewArticles.current) return;
     isHandlingNewArticles.current = true;
+
+    // Clear cached scores for new posts so they get fresh scores
+    pendingNewIds.forEach(id => cachedScoresRef.current.delete(id));
 
     // Mark pending posts as "just revealed" so they appear at top
     setJustRevealedIds(new Set(pendingNewIds));
@@ -938,7 +944,13 @@ function NewsFeed() {
   }, [filteredNews]);
 
   // Smart ranking algorithm that combines multiple signals
+  // IMPORTANT: Does NOT depend on real-time likes/comments to prevent live reordering
   const calculatePostScore = useCallback((item) => {
+    // Return cached score if available to prevent reordering
+    if (cachedScoresRef.current.has(item.id)) {
+      return cachedScoresRef.current.get(item.id);
+    }
+
     const text = `${item.title} ${item.summary || ''}`.toLowerCase();
     const postKeywords = extractPostKeywords(text);
 
@@ -994,29 +1006,24 @@ function NewsFeed() {
       engagementScore = score;
     }
 
-    // 5. POST ENGAGEMENT SCORE (0-1) - likes/comments on this post
-    const postLikes = likesMap[item.id]?.count || 0;
-    const postComments = commentsMap[item.id] || 0;
-    const postEngagement = getEngagementScore(postLikes, postComments);
-
-    // 6. SEEN PENALTY (0-1) - reduce score for posts seen multiple times
+    // 5. SEEN PENALTY (0-1) - reduce score for posts seen multiple times
     const viewCount = interactionsService.getViewCount(item.id);
     const seenPenalty = viewCount > 0 ? Math.min(viewCount * 0.15, 0.5) : 0;
 
-    // 7. ALREADY CLICKED PENALTY - strongly deprioritize clicked posts
+    // 6. ALREADY CLICKED PENALTY - strongly deprioritize clicked posts
     const clickedPenalty = engagementProfile?.clickedPostIds?.has(item.id) ? 0.6 : 0;
 
-    // 8. SESSION SHOWN PENALTY - prevent showing same post repeatedly in session
+    // 7. SESSION SHOWN PENALTY - prevent showing same post repeatedly in session
     const sessionPenalty = sessionShownRef.current.has(item.id) ? 0.3 : 0;
 
     // COMBINE SCORES with weights
-    // Freshness is most important, followed by personalization, then engagement
+    // Freshness is most important, followed by personalization
+    // NOTE: Post engagement (likes/comments) removed to prevent live reordering
     const rawScore =
-      freshnessScore * 0.35 +      // 35% - freshness (prevents stale content)
-      trendingScore * 0.20 +       // 20% - trending topics
+      freshnessScore * 0.40 +      // 40% - freshness (prevents stale content)
+      trendingScore * 0.25 +       // 25% - trending topics
       likeProfileScore * 0.20 +    // 20% - like history
-      engagementScore * 0.12 +     // 12% - click history
-      postEngagement * 0.13;       // 13% - post popularity
+      engagementScore * 0.15;      // 15% - click history
 
     // Apply penalties
     const finalScore = Math.max(rawScore - seenPenalty - clickedPenalty - sessionPenalty, 0.01);
@@ -1024,8 +1031,19 @@ function NewsFeed() {
     // Add small random factor (0-0.05) to prevent deterministic ordering
     const randomFactor = Math.random() * 0.05;
 
-    return finalScore + randomFactor;
-  }, [trendingTopics, userLikeProfile, engagementProfile, likesMap, commentsMap]);
+    const score = finalScore + randomFactor;
+
+    // Cache the score to prevent reordering when other factors change
+    cachedScoresRef.current.set(item.id, score);
+
+    // Limit cache size
+    if (cachedScoresRef.current.size > 1000) {
+      const entries = Array.from(cachedScoresRef.current.entries());
+      cachedScoresRef.current = new Map(entries.slice(-500));
+    }
+
+    return score;
+  }, [trendingTopics, userLikeProfile, engagementProfile]);
 
   // Smart sorted news with diversity enforcement
   const sortedNews = useMemo(() => {
@@ -1210,6 +1228,8 @@ function NewsFeed() {
   // Reset display count and show new articles when switching tabs
   useEffect(() => {
     setDisplayCount(20);
+    // Clear cached scores when switching tabs to get fresh ranking
+    cachedScoresRef.current.clear();
     // Show all articles when switching tabs
     if (pendingNewIds.size > 0) {
       setShownNewsIds(new Set(news.map(item => item.id)));
