@@ -346,9 +346,9 @@ export const useStore = create((set, get) => ({
 
         const matchScore = matchCount / item.keywords.length;
 
-        // Require at least 50% keyword match AND minimum 4 keyword matches
-        // This reduces false positives from generic word matches
-        if (matchScore >= 0.5 && matchCount >= 4) {
+        // Require at least 40% keyword match AND minimum 2 keyword matches
+        // This ensures we catch related posts while filtering out unrelated ones
+        if (matchScore >= 0.4 && matchCount >= 2) {
           // Create Firebase notification for similar news
           notificationsService.createNotification({
             userId: currentUserId,
