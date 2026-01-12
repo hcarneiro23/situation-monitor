@@ -465,6 +465,193 @@ function extractTrendingPhrases(newsItems) {
   return final;
 }
 
+// ============================================================================
+// X-STYLE INTELLIGENT FEED ALGORITHM
+// ============================================================================
+
+// Content type detection for decay curves
+const CONTENT_TYPES = {
+  BREAKING: 'breaking',      // Fast decay - urgent news
+  STANDARD: 'standard',      // Normal decay - regular news
+  EVERGREEN: 'evergreen'     // Slow decay - analysis, explainers
+};
+
+// Detect content type from post
+function detectContentType(item) {
+  const title = (item.title || '').toLowerCase();
+  const summary = (item.summary || '').toLowerCase();
+  const text = `${title} ${summary}`;
+
+  // Breaking news indicators
+  const breakingIndicators = ['breaking', 'just in', 'developing', 'urgent', 'alert', 'live:', 'update:'];
+  if (breakingIndicators.some(ind => text.includes(ind))) {
+    return CONTENT_TYPES.BREAKING;
+  }
+
+  // Evergreen/analysis indicators
+  const evergreenIndicators = ['analysis', 'explainer', 'explained', 'guide', 'how to', 'what is',
+    'deep dive', 'opinion', 'editorial', 'commentary', 'review', 'profile', 'interview'];
+  if (evergreenIndicators.some(ind => text.includes(ind))) {
+    return CONTENT_TYPES.EVERGREEN;
+  }
+
+  return CONTENT_TYPES.STANDARD;
+}
+
+// Content-type-aware freshness decay
+function getSmartFreshnessScore(pubDate, contentType, viewCount = 0, rapidScrollCount = 0) {
+  if (!pubDate) return 0.3;
+
+  try {
+    const date = parseISO(pubDate);
+    if (!isValid(date)) return 0.3;
+    const hoursAgo = differenceInHours(new Date(), date);
+
+    let baseScore;
+
+    // Different decay curves per content type
+    if (contentType === CONTENT_TYPES.BREAKING) {
+      // Fast decay: breaking news loses relevance quickly
+      if (hoursAgo < 1) baseScore = 1.0;
+      else if (hoursAgo < 2) baseScore = 0.8;
+      else if (hoursAgo < 4) baseScore = 0.5;
+      else if (hoursAgo < 8) baseScore = 0.3;
+      else if (hoursAgo < 16) baseScore = 0.15;
+      else baseScore = 0.05;
+    } else if (contentType === CONTENT_TYPES.EVERGREEN) {
+      // Slow decay: analysis/explainers stay relevant longer
+      if (hoursAgo < 6) baseScore = 1.0;
+      else if (hoursAgo < 24) baseScore = 0.9;
+      else if (hoursAgo < 48) baseScore = 0.75;
+      else if (hoursAgo < 96) baseScore = 0.6;
+      else if (hoursAgo < 168) baseScore = 0.4; // 1 week
+      else baseScore = 0.2;
+    } else {
+      // Standard decay
+      if (hoursAgo < 1) baseScore = 1.0;
+      else if (hoursAgo < 3) baseScore = 0.9;
+      else if (hoursAgo < 6) baseScore = 0.8;
+      else if (hoursAgo < 12) baseScore = 0.6;
+      else if (hoursAgo < 24) baseScore = 0.4;
+      else if (hoursAgo < 48) baseScore = 0.25;
+      else baseScore = 0.1;
+    }
+
+    // Aggressive decay for repeatedly shown and ignored items
+    if (viewCount > 2 && rapidScrollCount > 1) {
+      baseScore *= Math.max(0.3, 1 - (rapidScrollCount * 0.2));
+    }
+
+    return baseScore;
+  } catch (e) {
+    return 0.3;
+  }
+}
+
+// Story clustering: compute text similarity using n-gram Jaccard
+function computeTextSimilarity(text1, text2) {
+  if (!text1 || !text2) return 0;
+
+  const getNGrams = (text, n = 2) => {
+    const words = text.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2);
+    const grams = new Set();
+    for (let i = 0; i <= words.length - n; i++) {
+      grams.add(words.slice(i, i + n).join(' '));
+    }
+    return grams;
+  };
+
+  const grams1 = getNGrams(text1);
+  const grams2 = getNGrams(text2);
+
+  if (grams1.size === 0 || grams2.size === 0) return 0;
+
+  let intersection = 0;
+  grams1.forEach(g => {
+    if (grams2.has(g)) intersection++;
+  });
+
+  const union = grams1.size + grams2.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+// Cluster similar stories and mark duplicates
+function clusterStories(items) {
+  if (items.length === 0) return { clusters: [], itemToCluster: new Map() };
+
+  const clusters = [];
+  const itemToCluster = new Map();
+  const processed = new Set();
+
+  // Sort by date (newest first) so canonical is the freshest
+  const sorted = [...items].sort((a, b) =>
+    new Date(b.pubDate || 0) - new Date(a.pubDate || 0)
+  );
+
+  sorted.forEach(item => {
+    if (processed.has(item.id)) return;
+
+    const itemText = `${item.title} ${item.summary || ''}`;
+    let foundCluster = null;
+
+    // Check against existing clusters
+    for (const cluster of clusters) {
+      const canonicalText = `${cluster.canonical.title} ${cluster.canonical.summary || ''}`;
+      const similarity = computeTextSimilarity(itemText, canonicalText);
+
+      // High similarity threshold (0.4) for news deduplication
+      if (similarity > 0.4) {
+        foundCluster = cluster;
+        break;
+      }
+    }
+
+    if (foundCluster) {
+      // Add as duplicate
+      foundCluster.duplicates.push(item);
+      itemToCluster.set(item.id, foundCluster.id);
+    } else {
+      // Create new cluster
+      const newCluster = {
+        id: item.id,
+        canonical: item,
+        duplicates: []
+      };
+      clusters.push(newCluster);
+      itemToCluster.set(item.id, newCluster.id);
+    }
+
+    processed.add(item.id);
+  });
+
+  return { clusters, itemToCluster };
+}
+
+// Check if a story represents a material update to an existing cluster
+function isMaterialUpdate(newItem, existingCluster) {
+  if (!existingCluster) return true;
+
+  const canonical = existingCluster.canonical;
+  const timeDiff = Math.abs(
+    new Date(newItem.pubDate || 0) - new Date(canonical.pubDate || 0)
+  );
+
+  // If from different source and published 2+ hours apart, might be an update
+  if (newItem.source !== canonical.source && timeDiff > 2 * 60 * 60 * 1000) {
+    const similarity = computeTextSimilarity(
+      `${newItem.title} ${newItem.summary || ''}`,
+      `${canonical.title} ${canonical.summary || ''}`
+    );
+    // Lower similarity suggests new angle or update
+    return similarity < 0.35;
+  }
+
+  return false;
+}
+
 // Interest keywords for matching
 const INTEREST_KEYWORDS = {
   'markets': ['market', 'stock', 'trading', 'investor', 'finance', 'economy', 'bank', 'fed', 'rate', 'dow', 'nasdaq', 's&p', 'wall street'],
@@ -550,34 +737,9 @@ function extractPostKeywords(text) {
   return [...new Set(words)].slice(0, 10);
 }
 
-// Calculate freshness score (0-1) based on post age
-// Posts less than 1 hour old get max score, decays over 24 hours
-function getFreshnessScore(pubDate) {
-  if (!pubDate) return 0.3;
-  try {
-    const date = parseISO(pubDate);
-    if (!isValid(date)) return 0.3;
-    const hoursAgo = differenceInHours(new Date(), date);
-    if (hoursAgo < 1) return 1.0;
-    if (hoursAgo < 3) return 0.9;
-    if (hoursAgo < 6) return 0.8;
-    if (hoursAgo < 12) return 0.6;
-    if (hoursAgo < 24) return 0.4;
-    if (hoursAgo < 48) return 0.25;
-    return 0.1;
-  } catch (e) {
-    return 0.3;
-  }
-}
-
-// Calculate engagement score based on likes and comments
-function getEngagementScore(likeCount, commentCount) {
-  // Logarithmic scale to prevent viral posts from dominating
-  const likes = Math.log10(Math.max(likeCount, 1) + 1);
-  const comments = Math.log10(Math.max(commentCount, 1) + 1);
-  // Normalize to 0-1 range (assuming max ~100 likes/comments)
-  return Math.min((likes * 0.6 + comments * 0.4) / 2, 1);
-}
+// NOTE: Old getFreshnessScore and getEngagementScore functions removed.
+// Now using getSmartFreshnessScore with content-type-aware decay curves.
+// Engagement scoring is handled through utility-based prediction model.
 
 // Brazilian news sources
 const BRAZILIAN_SOURCES = [
@@ -884,11 +1046,21 @@ function NewsFeed() {
     // Track the click for personalization
     const post = news.find(n => n.id === postId);
     if (post) {
-      interactionsService.trackClick(postId, {
+      const postData = {
         source: post.source,
         category: post.category,
         keywords: extractPostKeywords(`${post.title} ${post.summary || ''}`)
-      });
+      };
+
+      // Track click
+      interactionsService.trackClick(postId, postData);
+
+      // Track session engagement (for real-time feed reweighting)
+      interactionsService.trackSessionEngagement(postData);
+
+      // Clear cached score for this post so it gets deprioritized on return
+      cachedScoresRef.current.delete(postId);
+
       // Refresh engagement profile
       setEngagementProfile(interactionsService.getEngagementProfile());
     }
@@ -943,9 +1115,13 @@ function NewsFeed() {
     return extractTrendingPhrases(filteredNews);
   }, [filteredNews]);
 
-  // Smart ranking algorithm that combines multiple signals
-  // IMPORTANT: Does NOT depend on real-time likes/comments to prevent live reordering
-  const calculatePostScore = useCallback((item) => {
+  // ============================================================================
+  // X-STYLE UTILITY-BASED SCORING ALGORITHM
+  // Optimizes for "most likely to be valuable to this user right now"
+  // ============================================================================
+  const calculatePostScore = useCallback((item, options = {}) => {
+    const { clusters = null, negativeFeedbackProfile = null, meaningfulReadProfile = null } = options;
+
     // Return cached score if available to prevent reordering
     if (cachedScoresRef.current.has(item.id)) {
       return cachedScoresRef.current.get(item.id);
@@ -953,87 +1129,173 @@ function NewsFeed() {
 
     const text = `${item.title} ${item.summary || ''}`.toLowerCase();
     const postKeywords = extractPostKeywords(text);
+    const contentType = detectContentType(item);
 
-    // 1. FRESHNESS SCORE (0-1) - newer posts get higher scores
-    const freshnessScore = getFreshnessScore(item.pubDate);
+    // Get interaction data
+    const viewCount = interactionsService.getViewCount(item.id);
+    const rapidScrollCount = interactionsService.getRapidScrollCount(item.id);
 
-    // 2. TRENDING SCORE (0-1) - how well post matches trending topics
-    let trendingScore = 0;
+    // ========================================================================
+    // STAGE 1: PREDICTED USER VALUE SIGNALS (not popularity)
+    // ========================================================================
+
+    // 1a. P(Opening) - Probability user will open this post
+    //     Based on: click history with similar content
+    let pOpen = 0.3; // Base probability
+    if (engagementProfile && engagementProfile.totalClicks > 0) {
+      if (item.source && engagementProfile.clickedSources[item.source]) {
+        pOpen += Math.min(engagementProfile.clickedSources[item.source] / 10, 0.25);
+      }
+      if (item.category && engagementProfile.clickedCategories[item.category]) {
+        pOpen += Math.min(engagementProfile.clickedCategories[item.category] / 8, 0.2);
+      }
+      const matchedKeywords = postKeywords.filter(kw => engagementProfile.clickedKeywords[kw]);
+      pOpen += Math.min(matchedKeywords.length / 5, 0.25);
+    }
+    pOpen = Math.min(pOpen, 1.0);
+
+    // 1b. P(Meaningful Read) - Probability of engaged reading (not bounce)
+    //     Based on: meaningful read history from dwell time
+    let pMeaningfulRead = 0.25; // Base
+    if (meaningfulReadProfile && meaningfulReadProfile.totalMeaningfulReads > 0) {
+      if (item.source && meaningfulReadProfile.sourceReads[item.source]) {
+        pMeaningfulRead += Math.min(meaningfulReadProfile.sourceReads[item.source] / 5, 0.3);
+      }
+      if (item.category && meaningfulReadProfile.categoryReads[item.category]) {
+        pMeaningfulRead += Math.min(meaningfulReadProfile.categoryReads[item.category] / 5, 0.25);
+      }
+    }
+    // Evergreen content more likely to get meaningful reads
+    if (contentType === CONTENT_TYPES.EVERGREEN) {
+      pMeaningfulRead += 0.15;
+    }
+    pMeaningfulRead = Math.min(pMeaningfulRead, 1.0);
+
+    // 1c. P(Save/Bookmark) - Probability of saving
+    //     Proxy: user's like history (likes correlate with saves)
+    let pSave = 0.1; // Base
+    if (userLikeProfile && userLikeProfile.totalLikes > 0) {
+      if (item.source && userLikeProfile.likedSources[item.source]) {
+        pSave += Math.min(userLikeProfile.likedSources[item.source] / 8, 0.25);
+      }
+      if (item.category && userLikeProfile.likedCategories[item.category]) {
+        pSave += Math.min(userLikeProfile.likedCategories[item.category] / 6, 0.25);
+      }
+      const matchedKeywords = postKeywords.filter(kw => userLikeProfile.likedKeywords[kw]);
+      pSave += Math.min(matchedKeywords.length / 4, 0.25);
+    }
+    pSave = Math.min(pSave, 1.0);
+
+    // 1d. P(Share) - Probability of sharing
+    //     Proxy: trending match + breaking news + high relevance
+    let pShare = 0.05; // Base (sharing is rare)
     if (trendingTopics.length > 0) {
       const trendingMatches = trendingTopics.filter(t =>
         text.includes(t.phrase.toLowerCase())
       ).length;
-      trendingScore = Math.min(trendingMatches / 3, 1);
+      pShare += Math.min(trendingMatches / 5, 0.2);
+    }
+    if (contentType === CONTENT_TYPES.BREAKING) {
+      pShare += 0.15; // Breaking news more likely to be shared
+    }
+    pShare = Math.min(pShare, 1.0);
+
+    // 1e. P(Negative Feedback) - Probability of hide/not interested
+    //     Based on: negative feedback history
+    let pNegative = 0.05; // Base
+    if (negativeFeedbackProfile) {
+      if (item.source && negativeFeedbackProfile.hiddenSources[item.source]) {
+        pNegative += Math.min(negativeFeedbackProfile.hiddenSources[item.source] * 0.15, 0.4);
+      }
+      if (item.category && negativeFeedbackProfile.hiddenCategories[item.category]) {
+        pNegative += Math.min(negativeFeedbackProfile.hiddenCategories[item.category] * 0.1, 0.3);
+      }
+      if (negativeFeedbackProfile.hiddenPostIds.has(item.id)) {
+        pNegative = 1.0; // Explicitly hidden
+      }
+    }
+    // Rapid scrolls suggest disinterest
+    if (rapidScrollCount > 2) {
+      pNegative += Math.min(rapidScrollCount * 0.1, 0.3);
+    }
+    pNegative = Math.min(pNegative, 1.0);
+
+    // ========================================================================
+    // STAGE 2: COMBINE INTO UTILITY SCORE
+    // Weight meaningful engagement higher than clicks
+    // ========================================================================
+    const utilityScore =
+      pOpen * 0.15 +              // 15% - clicks matter but less than engagement
+      pMeaningfulRead * 0.35 +    // 35% - meaningful reading is key
+      pSave * 0.25 +              // 25% - saves indicate real value
+      pShare * 0.15 -             // 15% - sharing shows social value
+      pNegative * 0.50;           // Strong penalty for predicted negative feedback
+
+    // ========================================================================
+    // STAGE 3: FRESHNESS WITH CONTENT-AWARE DECAY
+    // ========================================================================
+    const freshnessScore = getSmartFreshnessScore(
+      item.pubDate,
+      contentType,
+      viewCount,
+      rapidScrollCount
+    );
+
+    // ========================================================================
+    // STAGE 4: SESSION-AWARE ADJUSTMENTS
+    // ========================================================================
+    const sessionSignal = interactionsService.getSessionSignal({
+      source: item.source,
+      category: item.category
+    });
+    const sessionBoost = sessionSignal.boost;
+    const sessionPenalty = sessionSignal.penalty;
+
+    // Already shown in session penalty
+    const shownInSessionPenalty = interactionsService.wasShownInSession(item.id) ? 0.25 : 0;
+
+    // Already clicked penalty
+    const clickedPenalty = engagementProfile?.clickedPostIds?.has(item.id) ? 0.5 : 0;
+
+    // ========================================================================
+    // STAGE 5: DEDUPLICATION PENALTY
+    // If this is a duplicate (not the canonical story), heavy penalty
+    // ========================================================================
+    let deduplicationPenalty = 0;
+    if (clusters) {
+      const { itemToCluster, clusters: clusterList } = clusters;
+      const clusterId = itemToCluster.get(item.id);
+      if (clusterId && clusterId !== item.id) {
+        // This is a duplicate, not the canonical
+        const cluster = clusterList.find(c => c.id === clusterId);
+        if (cluster && !isMaterialUpdate(item, cluster)) {
+          deduplicationPenalty = 0.7; // Heavy penalty for duplicates
+        }
+      }
     }
 
-    // 3. LIKE PROFILE SCORE (0-1) - matches user's liked content patterns
-    let likeProfileScore = 0;
-    if (userLikeProfile && userLikeProfile.totalLikes > 0) {
-      let score = 0;
-      // Source match
-      if (item.source && userLikeProfile.likedSources[item.source]) {
-        score += Math.min(userLikeProfile.likedSources[item.source] / 5, 1) * 0.3;
-      }
-      // Category match
-      if (item.category && userLikeProfile.likedCategories[item.category]) {
-        score += Math.min(userLikeProfile.likedCategories[item.category] / 3, 1) * 0.3;
-      }
-      // Keyword match
-      const matchedKeywords = postKeywords.filter(kw => userLikeProfile.likedKeywords[kw]);
-      if (matchedKeywords.length > 0) {
-        score += Math.min(matchedKeywords.length / 3, 1) * 0.4;
-      }
-      likeProfileScore = score;
-    }
-
-    // 4. ENGAGEMENT PROFILE SCORE (0-1) - matches user's clicked content patterns
-    let engagementScore = 0;
-    if (engagementProfile && engagementProfile.totalClicks > 0) {
-      let score = 0;
-      // Source match from clicks
-      if (item.source && engagementProfile.clickedSources[item.source]) {
-        score += Math.min(engagementProfile.clickedSources[item.source] / 5, 1) * 0.3;
-      }
-      // Category match from clicks
-      if (item.category && engagementProfile.clickedCategories[item.category]) {
-        score += Math.min(engagementProfile.clickedCategories[item.category] / 3, 1) * 0.3;
-      }
-      // Keyword match from clicks
-      const matchedKeywords = postKeywords.filter(kw => engagementProfile.clickedKeywords[kw]);
-      if (matchedKeywords.length > 0) {
-        score += Math.min(matchedKeywords.length / 3, 1) * 0.4;
-      }
-      engagementScore = score;
-    }
-
-    // 5. SEEN PENALTY (0-1) - reduce score for posts seen multiple times
-    const viewCount = interactionsService.getViewCount(item.id);
-    const seenPenalty = viewCount > 0 ? Math.min(viewCount * 0.15, 0.5) : 0;
-
-    // 6. ALREADY CLICKED PENALTY - strongly deprioritize clicked posts
-    const clickedPenalty = engagementProfile?.clickedPostIds?.has(item.id) ? 0.6 : 0;
-
-    // 7. SESSION SHOWN PENALTY - prevent showing same post repeatedly in session
-    const sessionPenalty = sessionShownRef.current.has(item.id) ? 0.3 : 0;
-
-    // COMBINE SCORES with weights
-    // Freshness is most important, followed by personalization
-    // NOTE: Post engagement (likes/comments) removed to prevent live reordering
+    // ========================================================================
+    // FINAL SCORE CALCULATION
+    // ========================================================================
     const rawScore =
-      freshnessScore * 0.40 +      // 40% - freshness (prevents stale content)
-      trendingScore * 0.25 +       // 25% - trending topics
-      likeProfileScore * 0.20 +    // 20% - like history
-      engagementScore * 0.15;      // 15% - click history
+      utilityScore * 0.45 +       // 45% - predicted user value
+      freshnessScore * 0.35 +     // 35% - time-appropriate freshness
+      sessionBoost * 0.20;        // 20% - session context boost
 
-    // Apply penalties
-    const finalScore = Math.max(rawScore - seenPenalty - clickedPenalty - sessionPenalty, 0.01);
+    const penalties =
+      sessionPenalty +
+      shownInSessionPenalty +
+      clickedPenalty +
+      deduplicationPenalty;
 
-    // Add small random factor (0-0.05) to prevent deterministic ordering
-    const randomFactor = Math.random() * 0.05;
+    const finalScore = Math.max(rawScore - penalties, 0.01);
+
+    // Small random factor to prevent deterministic ties
+    const randomFactor = Math.random() * 0.03;
 
     const score = finalScore + randomFactor;
 
-    // Cache the score to prevent reordering when other factors change
+    // Cache score
     cachedScoresRef.current.set(item.id, score);
 
     // Limit cache size
@@ -1045,85 +1307,159 @@ function NewsFeed() {
     return score;
   }, [trendingTopics, userLikeProfile, engagementProfile]);
 
-  // Smart sorted news with diversity enforcement
+  // ============================================================================
+  // X-STYLE MULTI-STAGE FEED CONSTRUCTION
+  // Stage 1: Candidate pool → Stage 2: Filter duplicates → Stage 3: Score
+  // Stage 4: Diversify → Stage 5: Exploration injection → Stage 6: Final re-rank
+  // ============================================================================
   const sortedNews = useMemo(() => {
     if (filteredNews.length === 0) return [];
 
-    // Separate posts into categories
+    // Get profiles for scoring
+    const negativeFeedbackProfile = interactionsService.getNegativeFeedbackProfile();
+    const meaningfulReadProfile = interactionsService.getMeaningfulReadProfile();
+
+    // ========================================================================
+    // STAGE 1: CANDIDATE POOL PREPARATION
+    // ========================================================================
     const justRevealedPosts = filteredNews.filter(item => justRevealedIds.has(item.id));
     const otherPosts = filteredNews.filter(item => !justRevealedIds.has(item.id));
 
     // Sort just revealed by date (newest first)
     justRevealedPosts.sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
 
-    // Identify truly fresh posts (less than 2 hours old, not yet seen)
+    // ========================================================================
+    // STAGE 2: STORY DEDUPLICATION
+    // Cluster similar stories, keep only canonical version per cluster
+    // ========================================================================
+    const clusterData = clusterStories(otherPosts);
+    const { clusters } = clusterData;
+
+    // Get canonical posts (one per story cluster)
+    const canonicalPosts = clusters.map(c => c.canonical);
+
+    // ========================================================================
+    // STAGE 3: FILTER AND CLASSIFY
+    // Separate fresh, regular, and exploration candidates
+    // ========================================================================
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
     const freshPosts = [];
     const regularPosts = [];
-    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    const explorationPosts = []; // Posts outside user's usual interests
 
-    otherPosts.forEach(post => {
+    // Get user's known interest patterns
+    const knownSources = new Set([
+      ...Object.keys(engagementProfile?.clickedSources || {}),
+      ...Object.keys(userLikeProfile?.likedSources || {})
+    ]);
+    const knownCategories = new Set([
+      ...Object.keys(engagementProfile?.clickedCategories || {}),
+      ...Object.keys(userLikeProfile?.likedCategories || {})
+    ]);
+
+    canonicalPosts.forEach(post => {
       const pubTime = new Date(post.pubDate || 0).getTime();
       const isFresh = pubTime > twoHoursAgo;
       const notClicked = !engagementProfile?.clickedPostIds?.has(post.id);
       const notSeenMuch = interactionsService.getViewCount(post.id) < 3;
 
+      // Check if this is outside known interests (exploration candidate)
+      const isKnownSource = knownSources.has(post.source);
+      const isKnownCategory = knownCategories.has(post.category);
+      const isExploration = !isKnownSource && !isKnownCategory;
+
       if (isFresh && notClicked && notSeenMuch) {
         freshPosts.push(post);
+      } else if (isExploration && notClicked && notSeenMuch) {
+        explorationPosts.push(post);
       } else {
         regularPosts.push(post);
       }
     });
 
-    // Score all regular posts
-    const scoredPosts = regularPosts.map(post => ({
+    // ========================================================================
+    // STAGE 4: SCORE ALL POSTS
+    // ========================================================================
+    const scoreOptions = { clusters: clusterData, negativeFeedbackProfile, meaningfulReadProfile };
+
+    const scoredRegular = regularPosts.map(post => ({
       ...post,
-      _score: calculatePostScore(post)
-    }));
+      _score: calculatePostScore(post, scoreOptions),
+      _type: 'regular'
+    })).sort((a, b) => b._score - a._score);
 
-    // Sort by score (highest first)
-    scoredPosts.sort((a, b) => b._score - a._score);
-
-    // Score fresh posts but keep them prioritized
     const scoredFresh = freshPosts.map(post => ({
       ...post,
-      _score: calculatePostScore(post)
-    }));
-    scoredFresh.sort((a, b) => b._score - a._score);
+      _score: calculatePostScore(post, scoreOptions),
+      _type: 'fresh'
+    })).sort((a, b) => b._score - a._score);
 
-    // INTERLEAVE: Mix fresh posts throughout the feed to ensure they're seen
-    // Strategy: Reserve every 5th slot for fresh posts (if available)
+    const scoredExploration = explorationPosts.map(post => ({
+      ...post,
+      _score: calculatePostScore(post, scoreOptions),
+      _type: 'exploration'
+    })).sort((a, b) => b._score - a._score);
+
+    // ========================================================================
+    // STAGE 5: BUILD FEED WITH INTERLEAVING
+    // - Fresh posts prioritized at top
+    // - Exploration posts (10-15%) injected throughout
+    // - Regular posts fill the rest
+    // ========================================================================
     const result = [...justRevealedPosts];
-    let freshIdx = 0;
-    let regularIdx = 0;
 
-    // First, add up to 3 top fresh posts at the start
-    const topFresh = scoredFresh.slice(0, 3);
+    // Add top fresh posts first (up to 5)
+    const topFresh = scoredFresh.slice(0, 5);
     result.push(...topFresh);
-    freshIdx = 3;
 
-    // Then interleave remaining
-    while (regularIdx < scoredPosts.length || freshIdx < scoredFresh.length) {
+    let freshIdx = 5;
+    let regularIdx = 0;
+    let explorationIdx = 0;
+    let position = result.length;
+
+    // Interleave: every 8-10 posts, inject an exploration post
+    // Fresh posts every 5th slot
+    while (regularIdx < scoredRegular.length || freshIdx < scoredFresh.length) {
       // Add 4 regular posts
-      for (let i = 0; i < 4 && regularIdx < scoredPosts.length; i++) {
-        result.push(scoredPosts[regularIdx++]);
+      for (let i = 0; i < 4 && regularIdx < scoredRegular.length; i++) {
+        result.push(scoredRegular[regularIdx++]);
+        position++;
       }
+
       // Add 1 fresh post if available
       if (freshIdx < scoredFresh.length) {
         result.push(scoredFresh[freshIdx++]);
+        position++;
+      }
+
+      // Inject exploration post every ~10 positions (10% of feed)
+      if (position % 10 === 0 && explorationIdx < scoredExploration.length) {
+        result.push({ ...scoredExploration[explorationIdx++], _isExploration: true });
+        position++;
       }
     }
 
-    // Apply diversity enforcement - prevent same source clustering
-    const diversified = enforceSourceDiversity(result, 2);
+    // Add any remaining exploration posts at the end (but limit)
+    const remainingExploration = scoredExploration.slice(explorationIdx, explorationIdx + 5);
+    result.push(...remainingExploration);
 
-    // Prevent same category clustering (no more than 3 consecutive)
+    // ========================================================================
+    // STAGE 6: DIVERSITY ENFORCEMENT (Anti-Monotony)
+    // ========================================================================
+
+    // 6a. Source diversity - max 2 consecutive from same source
+    let diversified = enforceSourceDiversity(result, 2);
+
+    // 6b. Category diversity - max 3 consecutive from same category
     const categoryDiversified = [];
+    const categoryWindowCounts = {}; // Track category frequency in sliding window
+
     for (let i = 0; i < diversified.length; i++) {
       const post = diversified[i];
       let consecutiveSameCategory = 0;
 
       // Count consecutive posts with same category
-      for (let j = categoryDiversified.length - 1; j >= 0 && j >= categoryDiversified.length - 3; j--) {
+      for (let j = categoryDiversified.length - 1; j >= Math.max(0, categoryDiversified.length - 3); j--) {
         if (categoryDiversified[j].category === post.category) {
           consecutiveSameCategory++;
         } else {
@@ -1131,26 +1467,79 @@ function NewsFeed() {
         }
       }
 
-      if (consecutiveSameCategory >= 3) {
+      // Also check category dominance in last 10 posts
+      const windowStart = Math.max(0, categoryDiversified.length - 10);
+      const windowPosts = categoryDiversified.slice(windowStart);
+      const categoryInWindow = windowPosts.filter(p => p.category === post.category).length;
+      const categoryDominance = categoryInWindow >= 5; // >50% of window
+
+      if (consecutiveSameCategory >= 3 || categoryDominance) {
         // Find next post with different category to swap
-        for (let k = i + 1; k < diversified.length; k++) {
+        let swapped = false;
+        for (let k = i + 1; k < Math.min(i + 10, diversified.length); k++) {
           if (diversified[k].category !== post.category) {
-            // Swap
             [diversified[i], diversified[k]] = [diversified[k], diversified[i]];
             categoryDiversified.push(diversified[i]);
+            swapped = true;
             break;
           }
         }
-        if (categoryDiversified.length <= i) {
-          categoryDiversified.push(post); // No swap found, just add
+        if (!swapped) {
+          categoryDiversified.push(post);
         }
       } else {
         categoryDiversified.push(post);
       }
     }
 
-    // Track shown posts in this session
-    categoryDiversified.forEach(post => sessionShownRef.current.add(post.id));
+    // 6c. Content type diversity - ensure mix of breaking/standard/evergreen
+    const contentTypeDiversified = [];
+    let lastContentTypes = [];
+
+    for (const post of categoryDiversified) {
+      const contentType = detectContentType(post);
+
+      // Check if last 5 posts are all same content type
+      if (lastContentTypes.length >= 5 && lastContentTypes.every(t => t === contentType)) {
+        // Try to find a different content type to swap in
+        const swapIdx = categoryDiversified.indexOf(post);
+        let swapped = false;
+
+        for (let k = swapIdx + 1; k < Math.min(swapIdx + 8, categoryDiversified.length); k++) {
+          const candidateType = detectContentType(categoryDiversified[k]);
+          if (candidateType !== contentType) {
+            const temp = categoryDiversified[swapIdx];
+            categoryDiversified[swapIdx] = categoryDiversified[k];
+            categoryDiversified[k] = temp;
+            contentTypeDiversified.push(categoryDiversified[swapIdx]);
+            lastContentTypes.push(candidateType);
+            swapped = true;
+            break;
+          }
+        }
+
+        if (!swapped) {
+          contentTypeDiversified.push(post);
+          lastContentTypes.push(contentType);
+        }
+      } else {
+        contentTypeDiversified.push(post);
+        lastContentTypes.push(contentType);
+      }
+
+      // Keep window of last 5
+      if (lastContentTypes.length > 5) {
+        lastContentTypes = lastContentTypes.slice(-5);
+      }
+    }
+
+    // ========================================================================
+    // STAGE 7: SESSION TRACKING
+    // ========================================================================
+    contentTypeDiversified.forEach(post => {
+      interactionsService.markSessionShown(post.id);
+      sessionShownRef.current.add(post.id);
+    });
 
     // Limit session tracking to prevent memory issues
     if (sessionShownRef.current.size > 500) {
@@ -1158,8 +1547,8 @@ function NewsFeed() {
       sessionShownRef.current = new Set(arr.slice(-300));
     }
 
-    return categoryDiversified;
-  }, [filteredNews, justRevealedIds, calculatePostScore, engagementProfile]);
+    return contentTypeDiversified;
+  }, [filteredNews, justRevealedIds, calculatePostScore, engagementProfile, userLikeProfile]);
 
   const displayedNews = sortedNews.slice(0, displayCount);
   const hasMore = displayCount < sortedNews.length;
